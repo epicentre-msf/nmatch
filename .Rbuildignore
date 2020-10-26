@@ -1,0 +1,7 @@
+^nmatch\.Rproj$
+^\.Rproj\.user$
+^data-raw$
+^README\.Rmd$
+^LICENSE\.md$
+^\.travis\.yml$
+^codecov\.yml$
