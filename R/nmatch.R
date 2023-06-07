@@ -118,20 +118,6 @@ nmatch <- function(x,
                    eval_fn = match_eval,
                    eval_params = list(n_match_crit = 2)) {
 
-  # dtest <- readRDS("~/desktop/name_test.rds")
-  # x <- dtest$patient_name__etc
-  # y <- dtest$patient_name__mll
-  # # x <- names1
-  # # y <- names2
-  # token_split = "[-_[:space:]]+"
-  # nchar_min = 2
-  # dist_method = "osa"
-  # dist_max = 1L
-  # std = name_standardize
-  # ... <- NULL
-  # eval_fn = match_eval
-  # eval_params = list(n_match_crit = 2)
-
   ## match args
   if (!is.null(std)) {
     std <- match.fun(std)
@@ -142,7 +128,7 @@ nmatch <- function(x,
   eval_fn <- match.fun(eval_fn)
 
   ## string standardize x and y
-  dat_std <- dplyr::tibble(
+  dat_std <- tibble(
     id = seq_along(x),
     x,
     y,
@@ -152,7 +138,7 @@ nmatch <- function(x,
 
   ## tokenize
   dat_tokens <- dat_std %>%
-    dplyr::mutate(
+    mutate(
       x_token = purrr::map(.data$x_std, tokenize, prefix = "x", exclude_nchar = .env$nchar_min),
       y_token = purrr::map(.data$y_std, tokenize, prefix = "y", exclude_nchar = .env$nchar_min)
     ) %>%
@@ -160,43 +146,43 @@ nmatch <- function(x,
 
   ## summarize number of tokens per name
   dat_token_counts <- dat_tokens %>%
-    dplyr::group_by(.data$id) %>%
-    dplyr::summarize(
+    group_by(.data$id) %>%
+    summarize(
       k_x = length(unique(.data$x_index)),
       k_y = length(unique(.data$y_index)),
       .groups = "drop"
     ) %>%
-    dplyr::mutate(
+    mutate(
       k_align = purrr::map2_int(.data$k_x, .data$k_y, min)
     ) %>%
-    dplyr::left_join(x = dat_std, by = "id") %>%
-    dplyr::select(-any_of(c("x", "y", "x_std", "y_std")))
+    left_join(x = dat_std, by = "id") %>%
+    select(-any_of(c("x", "y", "x_std", "y_std")))
 
   ## calculate stringdist between tokens
   dat_tokens_dist <- dat_tokens %>%
-    dplyr::filter(nchar(.data$x_token) >= .env$nchar_min) %>%
-    dplyr::mutate(
+    filter(nchar(.data$x_token) >= .env$nchar_min) %>%
+    mutate(
       dist = stringdist::stringdist(.data$x_token, .data$y_token, method = dist_method),
       match = .data$dist <= .env$dist_max
     )
 
   ## summarize best-matching tokens and return
   match_summary <- dat_tokens_dist %>%
-    dplyr::group_by(.data$id, .data$x_index) %>%
-    dplyr::filter(.data$dist == min(.data$dist)) %>%
-    dplyr::ungroup() %>%
-    dplyr::arrange(.data$id, .data$y_token, .data$dist) %>%
-    dplyr::group_by(.data$id, .data$y_token) %>%
-    dplyr::slice(1) %>%
-    dplyr::ungroup() %>%
-    dplyr::group_by(.data$id) %>%
-    dplyr::summarize(
+    group_by(.data$id, .data$x_index) %>%
+    filter(.data$dist == min(.data$dist)) %>%
+    ungroup() %>%
+    arrange(.data$id, .data$y_token, .data$dist) %>%
+    group_by(.data$id, .data$y_token) %>%
+    slice(1) %>%
+    ungroup() %>%
+    group_by(.data$id) %>%
+    summarize(
       n_match = sum(.data$match),
       dist_total = sum(.data$dist),
       .groups = "drop"
     ) %>%
-    dplyr::left_join(x = dat_token_counts, by = "id") %>%
-    select(-.data$id)
+    left_join(x = dat_token_counts, by = "id") %>%
+    select(!any_of("id"))
 
   ## evalutate whether overall match
   is_match <- do.call(
@@ -208,7 +194,7 @@ nmatch <- function(x,
   if (return_full) {
     out <- match_summary %>%
       mutate(is_match = is_match) %>%
-      select(.data$is_match, everything())
+      select(all_of("is_match"), everything())
   } else {
     out <- is_match
   }
