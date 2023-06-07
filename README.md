@@ -7,6 +7,7 @@
 
 [![Lifecycle:
 experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://www.tidyverse.org/lifecycle/#experimental)
+[![R-CMD-check](https://github.com/epicentre-msf/nmatch/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/epicentre-msf/nmatch/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 Compare or match proper names from different sources, accounting for
@@ -62,7 +63,7 @@ names_ex %>%
 names_ex %>% 
   mutate(match_df = purrr::map2(name_source1, name_source2, nmatch, return_full = TRUE)) %>% 
   tidyr::unnest("match_df")
-#> # A tibble: 6 x 8
+#> # A tibble: 6 × 8
 #>   name_source1                name_source2           is_match   k_x   k_y k_align n_match dist_total
 #>   <chr>                       <chr>                  <lgl>    <int> <int>   <int>   <int>      <dbl>
 #> 1 Beyoncé Knowles             Beyonce Knowles-Carter TRUE         2     3       2       2          0
@@ -109,7 +110,7 @@ fuzzyjoin::fuzzy_join(
   mode = "left",
   dist_max = 2
 )
-#> # A tibble: 10 x 4
+#> # A tibble: 10 × 4
 #>    name_ipd                           date_ipd   name_icu                 date_icu  
 #>    <chr>                              <date>     <chr>                    <date>    
 #>  1 COLLET, André Daniel               2020-07-17 André D. Colet           2020-07-19
