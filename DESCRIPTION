@@ -28,3 +28,6 @@ Imports:
 Suggests: 
     testthat,
     covr
+URL: https://github.com/epicentre-msf/nmatch
+BugReports: https://github.com/epicentre-msf/nmatch/issues
+
