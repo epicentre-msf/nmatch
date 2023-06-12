@@ -65,7 +65,7 @@ names_ex %>%
   tidyr::unnest("match_df")
 #> # A tibble: 6 × 8
 #>   name_source1                name_source2           is_match   k_x   k_y k_align n_match dist_total
-#>   <chr>                       <chr>                  <lgl>    <int> <int>   <int>   <int>      <dbl>
+#>   <chr>                       <chr>                  <lgl>    <int> <int>   <int>   <int>      <int>
 #> 1 Beyoncé Knowles             Beyonce Knowles-Carter TRUE         2     3       2       2          0
 #> 2 Frédéric François Chopin    CHOPIN, Fryderyk F.    FALSE        3     2       2       1          3
 #> 3 Kendrick Lamar Duckworth    LAMAR, Kendrik         TRUE         3     2       2       2          1

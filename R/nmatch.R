@@ -118,6 +118,7 @@ nmatch <- function(x,
                    eval_fn = match_eval,
                    eval_params = list(n_match_crit = 2)) {
 
+
   ## match args
   if (!is.null(std)) {
     std <- match.fun(std)
@@ -139,17 +140,23 @@ nmatch <- function(x,
   ## tokenize
   dat_tokens <- dat_std %>%
     mutate(
-      x_token = purrr::map(.data$x_std, tokenize, prefix = "x", exclude_nchar = .env$nchar_min),
-      y_token = purrr::map(.data$y_std, tokenize, prefix = "y", exclude_nchar = .env$nchar_min)
+      x_token = purrr::map(.data$x_std, tokenize, exclude_nchar = .env$nchar_min),
+      y_token = purrr::map(.data$y_std, tokenize, exclude_nchar = .env$nchar_min)
     ) %>%
-    unnest_tokens(by = c("x_token", "y_token"))
+    unnest_tokens(by = c("x_token", "y_token")) %>%
+    group_by(id) %>%
+    mutate(
+      x_index = as.integer(as.factor(.data$x_token)),
+      y_index = as.integer(as.factor(.data$y_token))
+    ) %>%
+    ungroup()
 
   ## summarize number of tokens per name
   dat_token_counts <- dat_tokens %>%
     group_by(.data$id) %>%
     summarize(
-      k_x = length(unique(.data$x_index)),
-      k_y = length(unique(.data$y_index)),
+      k_x = max(.data$x_index),
+      k_y = max(.data$y_index),
       .groups = "drop"
     ) %>%
     mutate(
@@ -162,19 +169,16 @@ nmatch <- function(x,
   dat_tokens_dist <- dat_tokens %>%
     filter(nchar(.data$x_token) >= .env$nchar_min) %>%
     mutate(
-      dist = stringdist::stringdist(.data$x_token, .data$y_token, method = dist_method),
+      dist = as.integer(stringdist::stringdist(.data$x_token, .data$y_token, method = dist_method)),
       match = .data$dist <= .env$dist_max
-    )
+    ) %>%
+    arrange(.data$id, .data$dist)
 
-  ## summarize best-matching tokens and return
+  ## find best alignment of tokens
   match_summary <- dat_tokens_dist %>%
-    group_by(.data$id, .data$x_index) %>%
-    filter(.data$dist == min(.data$dist)) %>%
-    ungroup() %>%
-    arrange(.data$id, .data$y_token, .data$dist) %>%
-    group_by(.data$id, .data$y_token) %>%
-    slice(1) %>%
-    ungroup() %>%
+    split(.$id) %>%
+    lapply(find_best_alignment) %>%
+    bind_rows() %>%
     group_by(.data$id) %>%
     summarize(
       n_match = sum(.data$match),
@@ -201,3 +205,54 @@ nmatch <- function(x,
 
   out
 }
+
+
+
+
+#' @noRd
+find_best_alignment <- function(x) {
+  # for each name x and y to match, we have previously calculated string
+  # distance between all combinations of their tokens
+  # here we find best alignment by taking token x_i and y_i with lowest string
+  # distance, then removing the remaining combinations that include one of these
+  # tokens, then finding the next token pair with the lowest string distance,
+  # etc.
+
+  # TODO: compare total string distance for all possible alignments rather than
+  # sequential approach used currently
+
+  x$row <- seq_len(nrow(x))
+
+  k_x <- max(x$x_index)
+  k_y <- max(x$y_index)
+  k_align <- min(k_x, k_y)
+
+  if (!is.na(k_align)) {
+
+    rows_keep <- integer(length = k_align)
+    i <- 1L
+    x_sub <- x
+
+    while(i <= k_align) {
+
+      row_focal <- x_sub$row[1L]
+      rows_keep[i] <- row_focal
+
+      x_index_focal <- x$x_index[row_focal]
+      y_index_focal <- x$y_index[row_focal]
+
+      x_sub <- x_sub[!x_sub$x_index %in% x_index_focal & !x_sub$y_index %in% y_index_focal,]
+
+      i <- i + 1L
+    }
+
+    out <- x[rows_keep,]
+  } else {
+    out <- x
+  }
+
+  out$row <- NULL
+
+  out
+}
+
