@@ -7,7 +7,7 @@
 
 [![Lifecycle:
 experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://www.tidyverse.org/lifecycle/#experimental)
-[![R-CMD-check](https://github.com/epicentre-msf/nmatch/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/epicentre-msf/nmatch/actions/workflows/R-CMD-check.yaml)
+[![R-CMD-check](https://github.com/epicentre-msf/nmatch/workflows/R-CMD-check/badge.svg)](https://github.com/epicentre-msf/nmatch/actions)
 <!-- badges: end -->
 
 Compare or match proper names from different sources, accounting for
@@ -48,30 +48,19 @@ names_ex %>%
 #> 5 Céline Marie Claudette Dion           DION, Céline     TRUE
 #> 6         Aubrey Drake Graham                  Drake    FALSE
 
-# increase the threshold string distance to allow for 'fuzzier' matches
-names_ex %>% 
-  mutate(is_match = nmatch(name_source1, name_source2, dist_max = 3))
-#>                  name_source1           name_source2 is_match
-#> 1             Beyoncé Knowles Beyonce Knowles-Carter     TRUE
-#> 2    Frédéric François Chopin    CHOPIN, Fryderyk F.     TRUE
-#> 3    Kendrick Lamar Duckworth         LAMAR, Kendrik     TRUE
-#> 4 Calvin Cordozar Broadus Jr.             Snoop Dogg    FALSE
-#> 5 Céline Marie Claudette Dion           DION, Céline     TRUE
-#> 6         Aubrey Drake Graham                  Drake    FALSE
-
 # return full match details
 names_ex %>% 
   mutate(match_df = purrr::map2(name_source1, name_source2, nmatch, return_full = TRUE)) %>% 
   tidyr::unnest("match_df")
-#> # A tibble: 6 × 8
-#>   name_source1                name_source2           is_match   k_x   k_y k_align n_match dist_total
-#>   <chr>                       <chr>                  <lgl>    <int> <int>   <int>   <int>      <int>
-#> 1 Beyoncé Knowles             Beyonce Knowles-Carter TRUE         2     3       2       2          0
-#> 2 Frédéric François Chopin    CHOPIN, Fryderyk F.    FALSE        3     2       2       1          3
-#> 3 Kendrick Lamar Duckworth    LAMAR, Kendrik         TRUE         3     2       2       2          1
-#> 4 Calvin Cordozar Broadus Jr. Snoop Dogg             FALSE        4     2       2       0         10
-#> 5 Céline Marie Claudette Dion DION, Céline           TRUE         4     2       2       2          0
-#> 6 Aubrey Drake Graham         Drake                  FALSE        3     1       1       1          0
+#> # A tibble: 6 × 11
+#>   name_source1                name_source2     is_match    id   k_x   k_y k_align n_match dist_total freq_score align   
+#>   <chr>                       <chr>            <lgl>    <int> <int> <int>   <int>   <int>      <int> <chr>      <list>  
+#> 1 Beyoncé Knowles             Beyonce Knowles… TRUE         1     2     3       2       2          0 <NA>       <tibble>
+#> 2 Frédéric François Chopin    CHOPIN, Frydery… FALSE        1     3     2       2       1          3 <NA>       <tibble>
+#> 3 Kendrick Lamar Duckworth    LAMAR, Kendrik   TRUE         1     3     2       2       2          1 <NA>       <tibble>
+#> 4 Calvin Cordozar Broadus Jr. Snoop Dogg       FALSE        1     4     2       2       0         10 <NA>       <tibble>
+#> 5 Céline Marie Claudette Dion DION, Céline     TRUE         1     4     2       2       2          0 <NA>       <tibble>
+#> 6 Aubrey Drake Graham         Drake            FALSE        1     3     1       1       1          0 <NA>       <tibble>
 
 # use a custom function to classify matches, based on any of the vars returned
 # when return_full = TRUE (i.e. k_x, k_y, k_align, n_match, dist_total)
@@ -107,8 +96,7 @@ fuzzyjoin::fuzzy_join(
   dat_icu,
   by = c("name_ipd" = "name_icu"),
   match_fun = nmatch::nmatch,
-  mode = "left",
-  dist_max = 2
+  mode = "left"
 )
 #> # A tibble: 10 × 4
 #>    name_ipd                           date_ipd   name_icu                 date_icu  

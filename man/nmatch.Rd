@@ -11,12 +11,13 @@ nmatch(
   token_split = "[-_[:space:]]+",
   nchar_min = 2L,
   dist_method = "osa",
-  dist_max = 1L,
   std = name_standardize,
   ...,
   return_full = FALSE,
+  eval_fn_token = match_eval_token,
   eval_fn = match_eval,
-  eval_params = list(n_match_crit = 2)
+  eval_params = list(n_match_crit = 2),
+  token_freq = NULL
 )
 }
 \arguments{
@@ -31,10 +32,6 @@ underscore, or space character.}
 \item{dist_method}{Method to use for string distance calculation (see
 \link[stringdist]{stringdist-metrics}). Defaults to \code{"osa"}.}
 
-\item{dist_max}{Maximum string distance to use to classify matching tokens
-(i.e. tokens with a string distance less than or equal to \code{dist_max} will
-be considered matching). Defaults to \code{1L}.}
-
 \item{std}{Function to standardize strings during matching. Defaults to
 \code{\link{name_standardize}}. Set to \code{NULL} to omit standardization.}
 
@@ -44,11 +41,22 @@ be considered matching). Defaults to \code{1L}.}
 summary of match details (\code{TRUE}), or only a logical vector corresponding
 to final match status (\code{FALSE}). Defaults to \code{FALSE}.}
 
+\item{eval_fn_token}{Function to determine token match status. Defaults to
+\code{\link{match_eval_token}}. See section \emph{Custom classification
+functions} for more details.}
+
 \item{eval_fn}{Function to determine overall match status. Defaults to
 \code{\link{match_eval}}. See section \emph{Custom classification functions} for
 more details.}
 
 \item{eval_params}{List of additional arguments passed to \code{eval_fn}}
+
+\item{token_freq}{Optional data frame containing the frequencies of name
+tokens within the population of interest. Must have two columns
+\itemize{
+\item token_std: standardized tokens (using the same function as \code{std})
+\item freq: token frequency
+}}
 }
 \value{
 If \code{return_full = FALSE} (the default), returns a logical vector indicating
@@ -84,12 +92,14 @@ their number of tokens, the alignment is made with respect to the smaller
 number of tokens. E.g. If comparing "Angela Dorothea Merkel" to "Merkel
 Angela", the token "Dorothea" would ultimately be omitted from the best
 alignment.
+\item For each pair of tokens in the best alignment, classify whether or not the
+tokens match (TRUE/FALSE) based on their respective lengths and the string
+distance between them.
 \item Summarize the number of tokens in each name, the number of tokens in the
-best alignment, the number of aligned tokens that match (i.e. string
-distance less than or equal to the defined threshold), and the summed string
-distance of the best alignment.
-\item Classify overall match status (TRUE/FALSE) based on match details
-described in (4). By default, two names are considered to be matching if two
+best alignment, the number of aligned tokens that match, and the summed
+string distance of the best alignment.
+\item Classify overall match status (TRUE/FALSE) based on the match details
+described in (5). By default, two names are considered to be matching if two
 or more tokens match across names (e.g. "Merkel Angela" matches "Angela
 Dorothea Merkel"), or if both names consist of only a single token which is
 matching (e.g. "Beyonce" matches "Beyoncé").
@@ -114,9 +124,6 @@ names2 <- c(
 
 # return logical vector specifying which names are matches
 nmatch(names1, names2)
-
-# increase the threshold string distance to allow for 'fuzzier' matches
-nmatch(names1, names2, dist_max = 2)
 
 # return data frame with full match details
 nmatch(names1, names2, return_full = TRUE)

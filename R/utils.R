@@ -18,3 +18,13 @@ tokenize <- function(x, split = "[-_[:space:]]+", exclude_nchar) {
 }
 
 
+#' @noRd
+paste_collapse <- function(x, collapse = "; ") {
+  if (all(is.na(x))) {
+    out <- NA_character_
+  } else {
+    out <- paste(x, collapse = collapse)
+  }
+  return(out)
+}
+

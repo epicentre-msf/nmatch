@@ -23,11 +23,12 @@ test_that("nmatch works as expected", {
   expect_is(m1, "logical")
   expect_length(m1, length(x1))
 
-  # expect more matches with greater dist_max
-  m2 <- nmatch(x1, x2, dist_max = 4)
+  # expect more matches with more liberal token match fn
+  match_token_cust <- function(dist, ...) { dist <= 3 }
+  m2 <- nmatch(x1, x2, eval_fn_token = match_token_cust)
   expect_gt(sum(m2), sum(m1))
 
-  # expect more matches with greater dist_max
+  # test arg return_full
   m3 <- nmatch(x1, x2, return_full = TRUE)
   expect_is(m3, "data.frame")
   expect_equal(m1, m3$is_match)
@@ -43,4 +44,5 @@ test_that("nmatch works as expected", {
 
   m5 <- nmatch(x1, x2, eval_fn = match_cust)
   expect_gt(sum(m5), sum(m1))
+
 })

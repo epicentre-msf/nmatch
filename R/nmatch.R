@@ -23,13 +23,16 @@
 #' Angela", the token "Dorothea" would ultimately be omitted from the best
 #' alignment.
 #'
-#' 4. Summarize the number of tokens in each name, the number of tokens in the
-#' best alignment, the number of aligned tokens that match (i.e. string
-#' distance less than or equal to the defined threshold), and the summed string
-#' distance of the best alignment.
+#' 4. For each pair of tokens in the best alignment, classify whether or not the
+#' tokens match (TRUE/FALSE) based on their respective lengths and the string
+#' distance between them.
 #'
-#' 5. Classify overall match status (TRUE/FALSE) based on match details
-#' described in (4). By default, two names are considered to be matching if two
+#' 5. Summarize the number of tokens in each name, the number of tokens in the
+#' best alignment, the number of aligned tokens that match, and the summed
+#' string distance of the best alignment.
+#'
+#' 6. Classify overall match status (TRUE/FALSE) based on the match details
+#' described in (5). By default, two names are considered to be matching if two
 #' or more tokens match across names (e.g. "Merkel Angela" matches "Angela
 #' Dorothea Merkel"), or if both names consist of only a single token which is
 #' matching (e.g. "Beyonce" matches "Beyoncé").
@@ -41,19 +44,23 @@
 #' @param nchar_min Minimum token size to compare. Defaults to `2L`.
 #' @param dist_method Method to use for string distance calculation (see
 #'   \link[stringdist]{stringdist-metrics}). Defaults to `"osa"`.
-#' @param dist_max Maximum string distance to use to classify matching tokens
-#'   (i.e. tokens with a string distance less than or equal to `dist_max` will
-#'   be considered matching). Defaults to `1L`.
 #' @param std Function to standardize strings during matching. Defaults to
 #'   \code{\link{name_standardize}}. Set to `NULL` to omit standardization.
 #' @param ... additional arguments passed to `std()`
 #' @param return_full Logical indicating whether to return data frame with full
 #'   summary of match details (`TRUE`), or only a logical vector corresponding
 #'   to final match status (`FALSE`). Defaults to `FALSE`.
+#' @param eval_fn_token Function to determine token match status. Defaults to
+#'   \code{\link{match_eval_token}}. See section *Custom classification
+#'   functions* for more details.
 #' @param eval_fn Function to determine overall match status. Defaults to
 #'   \code{\link{match_eval}}. See section *Custom classification functions* for
 #'   more details.
 #' @param eval_params List of additional arguments passed to `eval_fn`
+#' @param token_freq Optional data frame containing the frequencies of name
+#'   tokens within the population of interest. Must have two columns
+#'   - token_std: standardized tokens (using the same function as `std`)
+#'   - freq: token frequency
 #'
 #' @return
 #' If `return_full = FALSE` (the default), returns a logical vector indicating
@@ -88,9 +95,6 @@
 #' # return logical vector specifying which names are matches
 #' nmatch(names1, names2)
 #'
-#' # increase the threshold string distance to allow for 'fuzzier' matches
-#' nmatch(names1, names2, dist_max = 2)
-#'
 #' # return data frame with full match details
 #' nmatch(names1, names2, return_full = TRUE)
 #'
@@ -102,22 +106,24 @@
 #' nmatch(names1, names2, return_full = TRUE, eval_fn = classify_matches)
 #'
 #' @import dplyr
-#' @importFrom purrr map map2_int
+#' @importFrom tidyr nest
+#' @importFrom purrr map map2 map2_int
 #' @importFrom stringdist stringdist
 #' @importFrom rlang .data .env
+#' @importFrom gtools permutations
 #' @export nmatch
 nmatch <- function(x,
                    y,
                    token_split = "[-_[:space:]]+",
                    nchar_min = 2L,
                    dist_method = "osa",
-                   dist_max = 1L,
                    std = name_standardize,
                    ...,
                    return_full = FALSE,
+                   eval_fn_token = match_eval_token,
                    eval_fn = match_eval,
-                   eval_params = list(n_match_crit = 2)) {
-
+                   eval_params = list(n_match_crit = 2),
+                   token_freq = NULL) {
 
   ## match args
   if (!is.null(std)) {
@@ -127,6 +133,9 @@ nmatch <- function(x,
   }
 
   eval_fn <- match.fun(eval_fn)
+  eval_fn_token <- match.fun(eval_fn_token)
+
+  if (is.null(token_freq)) token_freq <- data.frame(token_std = character(0), freq = integer(0))
 
   ## string standardize x and y
   dat_std <- tibble(
@@ -141,15 +150,16 @@ nmatch <- function(x,
   dat_tokens <- dat_std %>%
     mutate(
       x_token = purrr::map(.data$x_std, tokenize, exclude_nchar = .env$nchar_min),
-      y_token = purrr::map(.data$y_std, tokenize, exclude_nchar = .env$nchar_min)
+      y_token = purrr::map(.data$y_std, tokenize, exclude_nchar = .env$nchar_min),
+      x_index = purrr::map(.data$x_token, seq_along),
+      y_index = purrr::map(.data$y_token, seq_along)
     ) %>%
-    unnest_tokens(by = c("x_token", "y_token")) %>%
-    group_by(id) %>%
+    unnest(c("x_token", "x_index")) %>%
+    unnest(c("y_token", "y_index")) %>%
     mutate(
-      x_index = as.integer(as.factor(.data$x_token)),
-      y_index = as.integer(as.factor(.data$y_token))
-    ) %>%
-    ungroup()
+      rowid_temp = seq_len(n()),
+      .before = 1
+    )
 
   ## summarize number of tokens per name
   dat_token_counts <- dat_tokens %>%
@@ -168,27 +178,60 @@ nmatch <- function(x,
   ## calculate stringdist between tokens
   dat_tokens_dist <- dat_tokens %>%
     filter(nchar(.data$x_token) >= .env$nchar_min) %>%
-    mutate(
-      dist = as.integer(stringdist::stringdist(.data$x_token, .data$y_token, method = dist_method)),
-      match = .data$dist <= .env$dist_max
-    ) %>%
-    arrange(.data$id, .data$dist)
+    mutate(dist = as.integer(stringdist::stringdist(.data$x_token, .data$y_token, method = dist_method)))
 
   ## find best alignment of tokens
-  match_summary <- dat_tokens_dist %>%
-    split(.$id) %>%
-    lapply(find_best_alignment) %>%
-    bind_rows() %>%
+  max_index <- max(c(dat_tokens_dist$x_index, dat_tokens_dist$y_index))
+
+  perm_combos <- expand.grid(max = seq_len(max_index), min = seq_len(max_index)) %>%
+    filter(min <= max) %>%
+    arrange(max)
+
+  perm_list <- purrr::map2(perm_combos$max, perm_combos$min, function(x1, x2) gtools::permutations(x1, x2))
+  names(perm_list) <- paste(perm_combos$max, perm_combos$min, sep = "-")
+
+  best_alignment <- dat_tokens_dist %>%
+    tidyr::nest(data = !id) %>%
+    # within groups, must be arranged by x_index then y_index at this stage !
+    mutate(rowid_temp_list = map(.data$data, find_best_alignment, perm_list = perm_list))
+
+  best_alignment_filter <- dat_tokens_dist %>%
+    filter(.data$rowid_temp %in% unlist(best_alignment$rowid_temp_list))
+
+  best_alignment_join <- best_alignment_filter %>%
+    select(-any_of("rowid_temp")) %>%
+    tidyr::nest(align = !id)
+
+  match_summary_prep <- best_alignment_filter %>%
+    left_join(select(token_freq, "token_std", freq_x = "freq"), by = c("x_token" = "token_std")) %>%
+    left_join(select(token_freq, "token_std", freq_y = "freq"), by = c("y_token" = "token_std")) %>%
+    mutate(
+      freq_score = .data$freq_x + .data$freq_y,
+      nchar_x = nchar(.data$x_token),
+      nchar_y = nchar(.data$y_token),
+      nchar_max = map2_int(.data$nchar_x, .data$nchar_y, max)
+    )
+
+  # evalutate whether token match
+  is_match_token <- do.call(
+    eval_fn_token,
+    c(as.list(match_summary_prep))
+  )
+
+  match_summary <- match_summary_prep %>%
+    mutate(match = is_match_token) %>%
     group_by(.data$id) %>%
     summarize(
       n_match = sum(.data$match),
       dist_total = sum(.data$dist),
+      freq_score = paste_collapse(.data$freq_score),
       .groups = "drop"
     ) %>%
     left_join(x = dat_token_counts, by = "id") %>%
-    select(!any_of("id"))
+    left_join(best_alignment_join, by = "id")
 
-  ## evalutate whether overall match
+
+  # evalutate whether overall match
   is_match <- do.call(
     eval_fn,
     c(as.list(match_summary), eval_params)
@@ -210,49 +253,45 @@ nmatch <- function(x,
 
 
 #' @noRd
-find_best_alignment <- function(x) {
+find_best_alignment <- function(x, perm_list) {
   # for each name x and y to match, we have previously calculated string
   # distance between all combinations of their tokens
-  # here we find best alignment by taking token x_i and y_i with lowest string
-  # distance, then removing the remaining combinations that include one of these
-  # tokens, then finding the next token pair with the lowest string distance,
-  # etc.
-
-  # TODO: compare total string distance for all possible alignments rather than
-  # sequential approach used currently
-
-  x$row <- seq_len(nrow(x))
+  # here we find best alignment
 
   k_x <- max(x$x_index)
   k_y <- max(x$y_index)
-  k_align <- min(k_x, k_y)
 
-  if (!is.na(k_align)) {
+  x_is_larger <- k_x > k_y
+  k_min <- min(k_x, k_y)
+  k_max <- max(k_x, k_y)
 
-    rows_keep <- integer(length = k_align)
-    i <- 1L
-    x_sub <- x
+  if (all(is.na(x$x_token)) | all(is.na(x$y_token))) {
 
-    while(i <= k_align) {
+    out <- x$rowid_temp
 
-      row_focal <- x_sub$row[1L]
-      rows_keep[i] <- row_focal
-
-      x_index_focal <- x$x_index[row_focal]
-      y_index_focal <- x$y_index[row_focal]
-
-      x_sub <- x_sub[!x_sub$x_index %in% x_index_focal & !x_sub$y_index %in% y_index_focal,]
-
-      i <- i + 1L
-    }
-
-    out <- x[rows_keep,]
   } else {
-    out <- x
+
+    dmat <- matrix(x$dist, nrow = k_x, byrow = T)
+
+    if (x_is_larger) dmat <- t(dmat)
+
+    p <- perm_list[[paste(k_max, k_min, sep = "-")]]
+
+    # if !x_is_larger, row refers to x_token and col refers to y_token
+    # if x_is_larger, row refers to y_token and col refers to x_token
+    alignment_mats <- apply(p, 1, function (x) cbind(row = seq_len(k_min), col = x), simplify = FALSE)
+
+    alignment_scores <- vapply(alignment_mats, function(x) sum(dmat[x]), 0)
+
+    best_alignment <- alignment_mats[[which.min(alignment_scores)]]
+    if (x_is_larger) best_alignment <- best_alignment[,c(2, 1), drop = FALSE]
+    colnames(best_alignment) <- c("x_index", "y_index")
+
+    rows_best_alignment <- apply(best_alignment, 1, function (rc) which(x$x_index %in% rc[1] & x$y_index %in% rc[2]))
+
+    out <- x$rowid_temp[rows_best_alignment]
   }
 
-  out$row <- NULL
-
-  out
+  return(out)
 }
 

@@ -14,9 +14,10 @@ options(digits = 4, width = 120)
 ```
 
 # nmatch: Fuzzy matching for proper names
+
 <!-- badges: start -->
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://www.tidyverse.org/lifecycle/#experimental)
-[![R-CMD-check](https://github.com/epicentre-msf/nmatch/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/epicentre-msf/nmatch/actions/workflows/R-CMD-check.yaml)
+[![R-CMD-check](https://github.com/epicentre-msf/nmatch/workflows/R-CMD-check/badge.svg)](https://github.com/epicentre-msf/nmatch/actions)
 <!-- badges: end -->
 
 Compare or match proper names from different sources, accounting for potential
@@ -49,10 +50,6 @@ data("names_ex")
 # compare with default settings
 names_ex %>% 
   mutate(is_match = nmatch(name_source1, name_source2))
-
-# increase the threshold string distance to allow for 'fuzzier' matches
-names_ex %>% 
-  mutate(is_match = nmatch(name_source1, name_source2, dist_max = 3))
 
 # return full match details
 names_ex %>% 
@@ -87,8 +84,7 @@ fuzzyjoin::fuzzy_join(
   dat_icu,
   by = c("name_ipd" = "name_icu"),
   match_fun = nmatch::nmatch,
-  mode = "left",
-  dist_max = 2
+  mode = "left"
 )
 ```
 
