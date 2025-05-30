@@ -50,6 +50,11 @@
 #' @param return_full Logical indicating whether to return data frame with full
 #'   summary of match details (`TRUE`), or only a logical vector corresponding
 #'   to final match status (`FALSE`). Defaults to `FALSE`.
+#' @param return_alignment Logical indicating whether to return additional list
+#'   column 'align' containing data frames with details on best alignment for
+#'   each pair of names. Defaults to `FALSE`. Only used if `return_full = TRUE`.
+#'   summary of match details (`TRUE`), or only a logical vector corresponding
+#'   to final match status (`FALSE`). Defaults to `FALSE`.
 #' @param eval_fn_token Function to determine token match status. Defaults to
 #'   \code{\link{match_eval_token}}. See section *Custom classification
 #'   functions* for more details.
@@ -120,10 +125,12 @@ nmatch <- function(x,
                    std = name_standardize,
                    ...,
                    return_full = FALSE,
+                   return_alignment = FALSE,
                    eval_fn_token = match_eval_token,
                    eval_fn = match_eval,
                    eval_params = list(n_match_crit = 2),
                    token_freq = NULL) {
+
 
   ## match args
   if (!is.null(std)) {
@@ -140,8 +147,6 @@ nmatch <- function(x,
   ## string standardize x and y
   dat_std <- tibble(
     id = seq_along(x),
-    x,
-    y,
     x_std = std(x, ...),
     y_std = std(y, ...)
   )
@@ -154,6 +159,7 @@ nmatch <- function(x,
       x_index = purrr::map(.data$x_token, seq_along),
       y_index = purrr::map(.data$y_token, seq_along)
     ) %>%
+    select(!all_of(c("x_std", "y_std"))) %>%
     unnest(c("x_token", "x_index")) %>%
     unnest(c("y_token", "y_index")) %>%
     mutate(
@@ -171,17 +177,21 @@ nmatch <- function(x,
     ) %>%
     mutate(
       k_align = purrr::map2_int(.data$k_x, .data$k_y, min)
-    ) %>%
-    left_join(x = dat_std, by = "id") %>%
-    select(-any_of(c("x", "y", "x_std", "y_std")))
+    )
 
   ## calculate stringdist between tokens
-  dat_tokens_dist <- dat_tokens %>%
-    filter(nchar(.data$x_token) >= .env$nchar_min) %>%
-    mutate(dist = as.integer(stringdist::stringdist(.data$x_token, .data$y_token, method = dist_method)))
+  dat_tokens <- dat_tokens[nchar(dat_tokens$x_token) >= nchar_min, , drop = FALSE]
+
+  dat_tokens$dist <- as.integer(
+    stringdist::stringdist(
+      dat_tokens$x_token,
+      dat_tokens$y_token,
+      method = dist_method
+    )
+  )
 
   ## find best alignment of tokens
-  max_index <- max(c(dat_tokens_dist$x_index, dat_tokens_dist$y_index))
+  max_index <- max(c(dat_tokens$x_index, dat_tokens$y_index))
 
   perm_combos <- expand.grid(max = seq_len(max_index), min = seq_len(max_index)) %>%
     filter(min <= max) %>%
@@ -190,19 +200,13 @@ nmatch <- function(x,
   perm_list <- purrr::map2(perm_combos$max, perm_combos$min, function(x1, x2) gtools::permutations(x1, x2))
   names(perm_list) <- paste(perm_combos$max, perm_combos$min, sep = "-")
 
-  best_alignment <- dat_tokens_dist %>%
+  best_alignment <- dat_tokens %>%
     tidyr::nest(data = !id) %>%
     # within groups, must be arranged by x_index then y_index at this stage !
     mutate(rowid_temp_list = map(.data$data, find_best_alignment, perm_list = perm_list))
 
-  best_alignment_filter <- dat_tokens_dist %>%
-    filter(.data$rowid_temp %in% unlist(best_alignment$rowid_temp_list))
-
-  best_alignment_join <- best_alignment_filter %>%
-    select(-any_of("rowid_temp")) %>%
-    tidyr::nest(align = !id)
-
-  match_summary_prep <- best_alignment_filter %>%
+  match_summary_prep <- dat_tokens %>%
+    filter(.data$rowid_temp %in% unlist(best_alignment$rowid_temp_list)) %>%
     left_join(select(token_freq, "token_std", freq_x = "freq"), by = c("x_token" = "token_std")) %>%
     left_join(select(token_freq, "token_std", freq_y = "freq"), by = c("y_token" = "token_std")) %>%
     mutate(
@@ -212,12 +216,22 @@ nmatch <- function(x,
       nchar_max = map2_int(.data$nchar_x, .data$nchar_y, max)
     )
 
+  # cleanup
+  rm(best_alignment, dat_tokens)
+
+  if (return_alignment) {
+    best_alignment_join <- match_summary_prep %>%
+      select(id:dist) %>%
+      tidyr::nest(align = !id)
+  }
+
   # evalutate whether token match
   is_match_token <- do.call(
     eval_fn_token,
     c(as.list(match_summary_prep))
   )
 
+  # prep output
   match_summary <- match_summary_prep %>%
     mutate(match = is_match_token) %>%
     group_by(.data$id) %>%
@@ -227,9 +241,10 @@ nmatch <- function(x,
       freq_score = paste_collapse(.data$freq_score),
       .groups = "drop"
     ) %>%
-    left_join(x = dat_token_counts, by = "id") %>%
-    left_join(best_alignment_join, by = "id")
+    left_join(x = dat_token_counts, by = "id")
 
+  # cleanup
+  rm(match_summary_prep)
 
   # evalutate whether overall match
   is_match <- do.call(
@@ -239,9 +254,13 @@ nmatch <- function(x,
 
   ## return either full match details or logical is_match
   if (return_full) {
-    out <- match_summary %>%
-      mutate(is_match = is_match) %>%
-      select(all_of("is_match"), everything())
+    out <- bind_cols(tibble(is_match = is_match), match_summary)
+
+    if (return_alignment) {
+      out <- out %>%
+        left_join(best_alignment_join, by = "id")
+    }
+
   } else {
     out <- is_match
   }
@@ -287,7 +306,11 @@ find_best_alignment <- function(x, perm_list) {
     if (x_is_larger) best_alignment <- best_alignment[,c(2, 1), drop = FALSE]
     colnames(best_alignment) <- c("x_index", "y_index")
 
-    rows_best_alignment <- apply(best_alignment, 1, function (rc) which(x$x_index %in% rc[1] & x$y_index %in% rc[2]))
+    rows_best_alignment <- apply(
+      best_alignment,
+      1,
+      function (rc) which(x$x_index %in% rc[1] & x$y_index %in% rc[2])
+    )
 
     out <- x$rowid_temp[rows_best_alignment]
   }

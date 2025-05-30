@@ -14,6 +14,7 @@ nmatch(
   std = name_standardize,
   ...,
   return_full = FALSE,
+  return_alignment = FALSE,
   eval_fn_token = match_eval_token,
   eval_fn = match_eval,
   eval_params = list(n_match_crit = 2),
@@ -38,6 +39,12 @@ underscore, or space character.}
 \item{...}{additional arguments passed to \code{std()}}
 
 \item{return_full}{Logical indicating whether to return data frame with full
+summary of match details (\code{TRUE}), or only a logical vector corresponding
+to final match status (\code{FALSE}). Defaults to \code{FALSE}.}
+
+\item{return_alignment}{Logical indicating whether to return additional list
+column 'align' containing data frames with details on best alignment for
+each pair of names. Defaults to \code{FALSE}. Only used if \code{return_full = TRUE}.
 summary of match details (\code{TRUE}), or only a logical vector corresponding
 to final match status (\code{FALSE}). Defaults to \code{FALSE}.}
 
