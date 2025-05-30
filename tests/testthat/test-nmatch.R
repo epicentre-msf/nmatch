@@ -45,4 +45,10 @@ test_that("nmatch works as expected", {
   m5 <- nmatch(x1, x2, eval_fn = match_cust)
   expect_gt(sum(m5), sum(m1))
 
+  # test with missing values
+  y1 <- c(NA_character_, "Patrick", "Pat", "P")
+  y2 <- c("Patrick", NA_character_, "pat", "Pat")
+  expect_length(nmatch(y1, y2), 4)
+  expect_equal(nrow(nmatch(y1, y2, return_full = TRUE)), 4)
+
 })

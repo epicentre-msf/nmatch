@@ -180,7 +180,12 @@ nmatch <- function(x,
     )
 
   ## calculate stringdist between tokens
-  dat_tokens <- dat_tokens[nchar(dat_tokens$x_token) >= nchar_min, , drop = FALSE]
+  is_na_x <- is.na(dat_tokens$x_token)
+  is_na_y <- is.na(dat_tokens$y_token)
+  nchar_x_gt_min <- nchar(dat_tokens$x_token) >= nchar_min
+  dat_tokens <- dat_tokens[!is_na_x & !is_na_y & nchar_x_gt_min, , drop = FALSE]
+  # TODO: prevent fail if dat_tokens has nrows at this point
+  # i.e. because all pairs have missing values or nchar < nchar_min
 
   dat_tokens$dist <- as.integer(
     stringdist::stringdist(
@@ -191,7 +196,7 @@ nmatch <- function(x,
   )
 
   ## find best alignment of tokens
-  max_index <- max(c(dat_tokens$x_index, dat_tokens$y_index))
+  max_index <- max(c(dat_tokens$x_index, dat_tokens$y_index), na.rm = TRUE)
 
   perm_combos <- expand.grid(max = seq_len(max_index), min = seq_len(max_index)) %>%
     filter(min <= max) %>%
