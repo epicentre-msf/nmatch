@@ -167,7 +167,7 @@ nmatch <- function(x,
       .before = 1
     )
 
-  ## summarize number of tokens per name
+  ## summarize number of tokens per name (excluding tokens shorter than nchar_min)
   dat_token_counts <- dat_tokens %>%
     group_by(.data$id) %>%
     summarize(
@@ -177,14 +177,16 @@ nmatch <- function(x,
     ) %>%
     mutate(
       k_align = purrr::map2_int(.data$k_x, .data$k_y, min)
-    )
+    ) %>%
+    # make sure dat_token_counts contains all id
+    # even for entries where all tokens excluded because shorter than nchar_min
+    left_join(x = select(dat_std, id), by = "id")
 
   ## calculate stringdist between tokens
   is_na_x <- is.na(dat_tokens$x_token)
   is_na_y <- is.na(dat_tokens$y_token)
-  nchar_x_gt_min <- nchar(dat_tokens$x_token) >= nchar_min
-  dat_tokens <- dat_tokens[!is_na_x & !is_na_y & nchar_x_gt_min, , drop = FALSE]
-  # TODO: prevent fail if dat_tokens has nrows at this point
+  dat_tokens <- dat_tokens[!is_na_x & !is_na_y, , drop = FALSE]
+  # TODO: prevent fail if dat_tokens has no rows at this point
   # i.e. because all pairs have missing values or nchar < nchar_min
 
   dat_tokens$dist <- as.integer(
@@ -282,6 +284,12 @@ find_best_alignment <- function(x, perm_list) {
   # distance between all combinations of their tokens
   # here we find best alignment
 
+  # indices may not be sequential after tokens shorter than nchar_min removed
+  # this can lead errors (maybe silent errors too?) later in this fn
+  # transforming to sequential here
+  # x$x_index <- as.integer(as.factor(x$x_index))
+  # x$y_index <- as.integer(as.factor(x$y_index))
+
   k_x <- max(x$x_index)
   k_y <- max(x$y_index)
 
@@ -304,9 +312,9 @@ find_best_alignment <- function(x, perm_list) {
     # if !x_is_larger, row refers to x_token and col refers to y_token
     # if x_is_larger, row refers to y_token and col refers to x_token
     alignment_mats <- apply(p, 1, function (x) cbind(row = seq_len(k_min), col = x), simplify = FALSE)
-
     alignment_scores <- vapply(alignment_mats, function(x) sum(dmat[x]), 0)
 
+    # note in case of ties which.min takes first
     best_alignment <- alignment_mats[[which.min(alignment_scores)]]
     if (x_is_larger) best_alignment <- best_alignment[,c(2, 1), drop = FALSE]
     colnames(best_alignment) <- c("x_index", "y_index")

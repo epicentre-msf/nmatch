@@ -14,7 +14,7 @@ unnest_tokens <- function(x, by) {
 #' @noRd
 tokenize <- function(x, split = "[-_[:space:]]+", exclude_nchar) {
   token <- strsplit(x, split)[[1]]
-  # token <- token[nchar(token) >= exclude_nchar]
+  token <- token[nchar(token) >= exclude_nchar]
   token
 }
 

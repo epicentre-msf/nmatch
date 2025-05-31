@@ -51,4 +51,10 @@ test_that("nmatch works as expected", {
   expect_length(nmatch(y1, y2), 4)
   expect_equal(nrow(nmatch(y1, y2, return_full = TRUE)), 4)
 
+  # test with tokens that will be excluded
+  y1 <- c(" F. Fryderyk CHOPIN")
+  y2 <- c("Chopin, Frederyk 2")
+  m6 <- nmatch(y1, y2, return_full = TRUE)
+  expect_equal(m6$n_match, 2)
+  expect_equal(m6$dist_total, 1)
 })
