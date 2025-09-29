@@ -17,12 +17,16 @@
 #' name_standardize("QUOIREZ, Fran\U00E7oise D.")
 #'
 #' @importFrom stringr str_squish
+#' @importFrom stringr str_detect
 #' @importFrom stringi stri_trans_general
 #' @export name_standardize
 name_standardize <- function(x) {
+
   x <- toupper(x)
-  x <- stringi::stri_trans_general(x, id = "Latin-ASCII")
+  x_accent <- !is.na(x) & stringr::str_detect(x, "[^ -~]")
+  if (any(x_accent)) x[x_accent] <- stringi::stri_trans_general(x[x_accent], id = "Latin-ASCII")
   x <- gsub("[[:punct:]]+", " ", x)
   x <- stringr::str_squish(x)
   x
 }
+

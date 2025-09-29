@@ -25,9 +25,12 @@ Imports:
     rlang,
     purrr,
     tidyr,
-    gtools
+    gtools,
+    Rcpp
 Suggests: 
     testthat,
     covr
 URL: https://github.com/epicentre-msf/nmatch
 BugReports: https://github.com/epicentre-msf/nmatch/issues
+LinkingTo: 
+    Rcpp
