@@ -5,7 +5,7 @@ tokenize_name <- function(name, nchar_min = 2L) {
     .Call(`_nmatch_tokenize_name`, name, nchar_min)
 }
 
-nmatch_cpp <- function(x, y, nchar_min = 2L) {
-    .Call(`_nmatch_nmatch_cpp`, x, y, nchar_min)
+nmatch_cpp_tfreq <- function(x, y, nchar_min = 2L, token = character(), token_freq = integer()) {
+    .Call(`_nmatch_nmatch_cpp_tfreq`, x, y, nchar_min, token, token_freq)
 }
 

@@ -11,7 +11,8 @@ nmatch_fast(
   token_split = "[-_[:space:]]+",
   nchar_min = 2L,
   std = name_standardize,
-  ...
+  ...,
+  token_freq = NULL
 )
 }
 \arguments{
@@ -27,16 +28,27 @@ underscore, or space character.}
 \code{\link{name_standardize}}. Set to \code{NULL} to omit standardization.}
 
 \item{...}{additional arguments passed to \code{std()}}
+
+\item{token_freq}{Optional data frame containing the frequencies of name
+tokens within the population of interest. Must have two columns
+\itemize{
+\item token_std: standardized tokens (using the same function as \code{std})
+\item freq: token frequency
+}}
 }
 \value{
 Returns an integer matrix summarizing the match details, including columns:
 \itemize{
-\item \code{is_match}: logical vector indicating overall match status
 \item \code{k_x}: number of tokens in \code{x} (excludes tokens smaller than \code{nchar_min})
 \item \code{k_y}: number of tokens in \code{y} (excludes tokens smaller than \code{nchar_min})
 \item \code{k_align}: number of aligned tokens (i.e. \code{min(k_x, k_y)})
-\item \code{n_match}: number of aligned tokens that match (i.e. distance <= \code{dist_max})
 \item \code{dist_total}: summed string distance across aligned tokens
+\item \code{freq1}: summed frequency of first pair of aligned tokens (or NA if
+argument token_freq not provided)
+\item \code{freq2}: summed frequency of first pair of aligned tokens (or NA if
+argument token_freq not provided)
+\item \code{freq3}: summed frequency of first pair of aligned tokens (or NA if
+argument token_freq not provided)
 }
 }
 \description{
@@ -77,7 +89,7 @@ names2 <- c(
   "PEREZ-CASTLEJON, Pedro"
 )
 
-# return logical vector specifying which names are matches
+# return matrix with match details
 nmatch_fast(names1, names2)
 
 }

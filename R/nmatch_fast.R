@@ -27,12 +27,16 @@
 #'
 #' @return
 #' Returns an integer matrix summarizing the match details, including columns:
-#' - `is_match`: logical vector indicating overall match status
 #' - `k_x`: number of tokens in `x` (excludes tokens smaller than `nchar_min`)
 #' - `k_y`: number of tokens in `y` (excludes tokens smaller than `nchar_min`)
 #' - `k_align`: number of aligned tokens (i.e. `min(k_x, k_y)`)
-#' - `n_match`: number of aligned tokens that match (i.e. distance <= `dist_max`)
 #' - `dist_total`: summed string distance across aligned tokens
+#' - `freq1`: summed frequency of first pair of aligned tokens (or NA if
+#' argument token_freq not provided)
+#' - `freq2`: summed frequency of first pair of aligned tokens (or NA if
+#' argument token_freq not provided)
+#' - `freq3`: summed frequency of first pair of aligned tokens (or NA if
+#' argument token_freq not provided)
 #'
 #' @examples
 #' names1 <- c(
@@ -60,7 +64,8 @@ nmatch_fast <- function(x,
                         token_split = "[-_[:space:]]+",
                         nchar_min = 2L,
                         std = name_standardize,
-                        ...) {
+                        ...,
+                        token_freq = NULL) {
 
   ## match args
   if (!is.null(std)) {
@@ -69,24 +74,38 @@ nmatch_fast <- function(x,
     std <- function(x) x
   }
 
-  ## TODO: add token frequency
+  is_token_freq_null <- is.null(token_freq)
+
+  if (is_token_freq_null) {
+    token_freq <- data.frame(token = character(0), freq = integer(0))
+  }
 
   ## standardize names
   x_std <- std(x, ...)
   y_std <- std(y, ...)
 
   ## call to cpp function
-  out <- nmatch_cpp(x_std, y_std, nchar_min)
+  out <- nmatch_cpp_tfreq(
+    x_std,
+    y_std,
+    nchar_min,
+    token = token_freq[[1]],
+    token_freq = token_freq[[2]]
+  )
 
   ## hack to deal with NA
   is_na_x <- is.na(x_std)
   is_na_y <- is.na(y_std)
   is_na_xy <- is_na_x | is_na_y
+  is_k_align_zero <- out[,3] == 0L
 
-  out[is_na_x,1] <- NA_integer_
-  out[is_na_y,2] <- NA_integer_
-  out[is_na_xy,3] <- NA_integer_
-  out[is_na_xy,4] <- NA_integer_
+  out[is_na_x, 1] <- NA_integer_
+  out[is_na_y, 2] <- NA_integer_
+  out[is_na_xy, 3] <- NA_integer_
+  out[is_na_xy, 4] <- NA_integer_
+
+  # if k_align = 0, force dist_total to NA (maybe be 9999 from nmatch_cpp_tfreq)
+  out[is_k_align_zero, 4] <- NA_integer_
 
   ## return
   out

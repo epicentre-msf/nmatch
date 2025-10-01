@@ -22,23 +22,25 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// nmatch_cpp
-IntegerMatrix nmatch_cpp(const CharacterVector& x, const CharacterVector& y, int nchar_min);
-RcppExport SEXP _nmatch_nmatch_cpp(SEXP xSEXP, SEXP ySEXP, SEXP nchar_minSEXP) {
+// nmatch_cpp_tfreq
+IntegerMatrix nmatch_cpp_tfreq(const CharacterVector& x, const CharacterVector& y, int nchar_min, const CharacterVector& token, const IntegerVector& token_freq);
+RcppExport SEXP _nmatch_nmatch_cpp_tfreq(SEXP xSEXP, SEXP ySEXP, SEXP nchar_minSEXP, SEXP tokenSEXP, SEXP token_freqSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const CharacterVector& >::type x(xSEXP);
     Rcpp::traits::input_parameter< const CharacterVector& >::type y(ySEXP);
     Rcpp::traits::input_parameter< int >::type nchar_min(nchar_minSEXP);
-    rcpp_result_gen = Rcpp::wrap(nmatch_cpp(x, y, nchar_min));
+    Rcpp::traits::input_parameter< const CharacterVector& >::type token(tokenSEXP);
+    Rcpp::traits::input_parameter< const IntegerVector& >::type token_freq(token_freqSEXP);
+    rcpp_result_gen = Rcpp::wrap(nmatch_cpp_tfreq(x, y, nchar_min, token, token_freq));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
     {"_nmatch_tokenize_name", (DL_FUNC) &_nmatch_tokenize_name, 2},
-    {"_nmatch_nmatch_cpp", (DL_FUNC) &_nmatch_nmatch_cpp, 3},
+    {"_nmatch_nmatch_cpp_tfreq", (DL_FUNC) &_nmatch_nmatch_cpp_tfreq, 5},
     {NULL, NULL, 0}
 };
 
