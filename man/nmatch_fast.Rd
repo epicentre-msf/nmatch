@@ -42,6 +42,8 @@ Returns an integer matrix summarizing the match details, including columns:
 \item \code{k_x}: number of tokens in \code{x} (excludes tokens smaller than \code{nchar_min})
 \item \code{k_y}: number of tokens in \code{y} (excludes tokens smaller than \code{nchar_min})
 \item \code{k_align}: number of aligned tokens (i.e. \code{min(k_x, k_y)})
+\item \code{n_match}: number of tokens that match (see \link{match_eval_token} for
+match logic)
 \item \code{dist_total}: summed string distance across aligned tokens
 \item \code{freq1}: summed frequency of first pair of aligned tokens (or NA if
 argument token_freq not provided)
@@ -70,6 +72,12 @@ their number of tokens, the alignment is made with respect to the smaller
 number of tokens. E.g. If comparing "Angela Dorothea Merkel" to "Merkel
 Angela", the token "Dorothea" would ultimately be omitted from the best
 alignment.
+\item For each pair of tokens in the best alignment, classify whether or not the
+tokens match (TRUE/FALSE) based on their respective lengths and the string
+distance between them.
+\item Summarize the number of tokens in each name, the number of tokens in the
+best alignment, the number of aligned tokens that match, and the summed
+string distance of the best alignment.
 }
 }
 \examples{

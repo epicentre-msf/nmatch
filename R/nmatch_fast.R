@@ -23,6 +23,14 @@
 #' Angela", the token "Dorothea" would ultimately be omitted from the best
 #' alignment.
 #'
+#' 4. For each pair of tokens in the best alignment, classify whether or not the
+#' tokens match (TRUE/FALSE) based on their respective lengths and the string
+#' distance between them.
+#'
+#' 5. Summarize the number of tokens in each name, the number of tokens in the
+#' best alignment, the number of aligned tokens that match, and the summed
+#' string distance of the best alignment.
+#'
 #' @inheritParams nmatch
 #'
 #' @return
@@ -30,6 +38,8 @@
 #' - `k_x`: number of tokens in `x` (excludes tokens smaller than `nchar_min`)
 #' - `k_y`: number of tokens in `y` (excludes tokens smaller than `nchar_min`)
 #' - `k_align`: number of aligned tokens (i.e. `min(k_x, k_y)`)
+#' - `n_match`: number of tokens that match (see \link{match_eval_token} for
+#' match logic)
 #' - `dist_total`: summed string distance across aligned tokens
 #' - `freq1`: summed frequency of first pair of aligned tokens (or NA if
 #' argument token_freq not provided)
@@ -67,6 +77,7 @@ nmatch_fast <- function(x,
                         ...,
                         token_freq = NULL) {
 
+
   ## match args
   if (!is.null(std)) {
     std <- match.fun(std)
@@ -103,9 +114,10 @@ nmatch_fast <- function(x,
   out[is_na_y, 2] <- NA_integer_
   out[is_na_xy, 3] <- NA_integer_
   out[is_na_xy, 4] <- NA_integer_
+  out[is_na_xy, 5] <- NA_integer_
 
-  # if k_align = 0, force dist_total to NA (maybe be 9999 from nmatch_cpp_tfreq)
-  out[is_k_align_zero, 4] <- NA_integer_
+  # if k_align = 0, force dist_total to NA (may be 9999 from nmatch_cpp_tfreq)
+  out[is_k_align_zero, 5] <- NA_integer_
 
   ## return
   out

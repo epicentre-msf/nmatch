@@ -71,6 +71,19 @@ int levenshtein_distance(const std::string& s1, const std::string& s2) {
 }
 
 
+// C++ version of match_eval_token function
+bool match_eval_token_cpp(int nchar_x, int nchar_y, int dist) {
+  int nchar_max = std::max(nchar_x, nchar_y);
+
+  bool is_match = (nchar_max <= 3 && dist == 0) ||
+                  (nchar_max == 4 && dist <= 1) ||
+                  (nchar_max >= 5 && nchar_max <= 8 && dist <= 2) ||
+                  (nchar_max >= 9 && dist <= 3);
+
+  return is_match;
+}
+
+
 // Vectorized version with token frequency lookup
 // [[Rcpp::export]]
 IntegerMatrix nmatch_cpp_tfreq(const CharacterVector& x,
@@ -89,9 +102,9 @@ IntegerMatrix nmatch_cpp_tfreq(const CharacterVector& x,
     Rcpp::stop("token and token_freq must have the same length");
   }
 
-  // Create output matrix with 7 columns
-  IntegerMatrix result(n, 7);
-  colnames(result) = CharacterVector::create("k_x", "k_y", "k_align", "dist_total", "freq1", "freq2", "freq3");
+  // Create output matrix with 8 columns
+  IntegerMatrix result(n, 8);
+  colnames(result) = CharacterVector::create("k_x", "k_y", "k_align", "n_match", "dist_total", "freq1", "freq2", "freq3");
 
   // Pre-convert all strings
   std::vector<std::string> x_strings(n);
@@ -122,10 +135,12 @@ IntegerMatrix nmatch_cpp_tfreq(const CharacterVector& x,
     int k_y = tokens_y.size();
     int min_tokens = std::min(k_x, k_y);
     int min_distance;
+    int n_match = 0;
 
     // Variables to store best matching tokens for frequency lookup
     std::vector<std::string> best_tokens_x;
     std::vector<std::string> best_tokens_y;
+    std::vector<int> best_distances; // Store distances for each token pair
 
     if (tokens_x.empty() || tokens_y.empty()) {
       min_distance = 9999;
@@ -140,18 +155,24 @@ IntegerMatrix nmatch_cpp_tfreq(const CharacterVector& x,
 
         do {
           int distance = 0;
+          std::vector<int> token_distances(min_tokens);
+
           for (int j = 0; j < min_tokens && distance < min_distance; j++) {
-            distance += levenshtein_distance(tokens_x[j], tokens_y[indices[j]]);
+            int token_dist = levenshtein_distance(tokens_x[j], tokens_y[indices[j]]);
+            token_distances[j] = token_dist;
+            distance += token_dist;
           }
 
           if (distance < min_distance) {
             min_distance = distance;
-            // Store the best matching tokens
+            // Store the best matching tokens and their distances
             best_tokens_x.clear();
             best_tokens_y.clear();
+            best_distances.clear();
             for (int j = 0; j < min_tokens; j++) {
               best_tokens_x.push_back(tokens_x[j]);
               best_tokens_y.push_back(tokens_y[indices[j]]);
+              best_distances.push_back(token_distances[j]);
             }
             if (min_distance == 0) break;
           }
@@ -164,23 +185,39 @@ IntegerMatrix nmatch_cpp_tfreq(const CharacterVector& x,
 
         do {
           int distance = 0;
+          std::vector<int> token_distances(min_tokens);
+
           for (int j = 0; j < min_tokens && distance < min_distance; j++) {
-            distance += levenshtein_distance(tokens_x[indices[j]], tokens_y[j]);
+            int token_dist = levenshtein_distance(tokens_x[indices[j]], tokens_y[j]);
+            token_distances[j] = token_dist;
+            distance += token_dist;
           }
 
           if (distance < min_distance) {
             min_distance = distance;
-            // Store the best matching tokens
+            // Store the best matching tokens and their distances
             best_tokens_x.clear();
             best_tokens_y.clear();
             for (int j = 0; j < min_tokens; j++) {
               best_tokens_x.push_back(tokens_x[indices[j]]);
               best_tokens_y.push_back(tokens_y[j]);
+              best_distances.push_back(token_distances[j]);
             }
             if (min_distance == 0) break;
           }
 
         } while (std::next_permutation(indices.begin(), indices.end()));
+      }
+
+      // Count matches using the match_eval_token logic
+      for (int j = 0; j < best_tokens_x.size(); j++) {
+        int nchar_x = best_tokens_x[j].length();
+        int nchar_y = best_tokens_y[j].length();
+        int dist = best_distances[j];
+
+        if (match_eval_token_cpp(nchar_x, nchar_y, dist)) {
+          n_match++;
+        }
       }
     }
 
@@ -212,11 +249,13 @@ IntegerMatrix nmatch_cpp_tfreq(const CharacterVector& x,
     result(i, 0) = k_x;            // k_x
     result(i, 1) = k_y;            // k_y
     result(i, 2) = min_tokens;     // k_align
-    result(i, 3) = min_distance;   // min_dist
-    result(i, 4) = frequencies[0]; // freq1
-    result(i, 5) = frequencies[1]; // freq2
-    result(i, 6) = frequencies[2]; // freq3
+    result(i, 3) = n_match;        // n_match
+    result(i, 4) = min_distance;   // min_dist
+    result(i, 5) = frequencies[0]; // freq1
+    result(i, 6) = frequencies[1]; // freq2
+    result(i, 7) = frequencies[2]; // freq3
   }
 
   return result;
 }
+
