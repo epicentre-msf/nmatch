@@ -22,6 +22,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// osa_distance
+int osa_distance(const std::string& s1, const std::string& s2);
+RcppExport SEXP _nmatch_osa_distance(SEXP s1SEXP, SEXP s2SEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type s1(s1SEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type s2(s2SEXP);
+    rcpp_result_gen = Rcpp::wrap(osa_distance(s1, s2));
+    return rcpp_result_gen;
+END_RCPP
+}
 // nmatch_cpp_tfreq
 IntegerMatrix nmatch_cpp_tfreq(const CharacterVector& x, const CharacterVector& y, int nchar_min, const CharacterVector& token, const IntegerVector& token_freq);
 RcppExport SEXP _nmatch_nmatch_cpp_tfreq(SEXP xSEXP, SEXP ySEXP, SEXP nchar_minSEXP, SEXP tokenSEXP, SEXP token_freqSEXP) {
@@ -40,6 +52,7 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_nmatch_tokenize_name", (DL_FUNC) &_nmatch_tokenize_name, 2},
+    {"_nmatch_osa_distance", (DL_FUNC) &_nmatch_osa_distance, 2},
     {"_nmatch_nmatch_cpp_tfreq", (DL_FUNC) &_nmatch_nmatch_cpp_tfreq, 5},
     {NULL, NULL, 0}
 };

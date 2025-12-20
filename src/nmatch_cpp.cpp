@@ -35,38 +35,50 @@ std::vector<std::string> tokenize_name(const std::string& name, int nchar_min = 
 }
 
 
-// Levenshtein distance
-int levenshtein_distance(const std::string& s1, const std::string& s2) {
+// Optimal String Alignment distance (restricted Damerau-Levenshtein)
+// [[Rcpp::export]]
+int osa_distance(const std::string& s1, const std::string& s2) {
   int m = s1.length();
   int n = s2.length();
-
+  
   if (m == 0) return n;
   if (n == 0) return m;
-
-  // Use only two rows instead of full matrix
+  
+  // For OSA, we need three rows: prev_prev, prev, curr
+  std::vector<int> prev_prev_row(n + 1);
   std::vector<int> prev_row(n + 1);
   std::vector<int> curr_row(n + 1);
-
+  
   // Initialize first row
   for (int j = 0; j <= n; j++) {
     prev_row[j] = j;
   }
-
+  
   for (int i = 1; i <= m; i++) {
     curr_row[0] = i;
-
+    
     for (int j = 1; j <= n; j++) {
-      if (s1[i-1] == s2[j-1]) {
-        curr_row[j] = prev_row[j-1];
-      } else {
-        curr_row[j] = 1 + std::min({prev_row[j], curr_row[j-1], prev_row[j-1]});
+      int cost = (s1[i-1] == s2[j-1]) ? 0 : 1;
+      
+      // Standard operations: insertion, deletion, substitution
+      curr_row[j] = std::min({
+        prev_row[j] + 1,        // deletion
+        curr_row[j-1] + 1,      // insertion
+        prev_row[j-1] + cost    // substitution
+      });
+      
+      // Transposition (swap adjacent characters)
+      if (i > 1 && j > 1 && 
+          s1[i-1] == s2[j-2] && s1[i-2] == s2[j-1]) {
+        curr_row[j] = std::min(curr_row[j], prev_prev_row[j-2] + cost);
       }
     }
-
-    // Swap rows
+    
+    // Rotate rows: prev_prev <- prev <- curr
+    prev_prev_row.swap(prev_row);
     prev_row.swap(curr_row);
   }
-
+  
   return prev_row[n];
 }
 
@@ -158,7 +170,7 @@ IntegerMatrix nmatch_cpp_tfreq(const CharacterVector& x,
           std::vector<int> token_distances(min_tokens);
 
           for (int j = 0; j < min_tokens && distance < min_distance; j++) {
-            int token_dist = levenshtein_distance(tokens_x[j], tokens_y[indices[j]]);
+            int token_dist = osa_distance(tokens_x[j], tokens_y[indices[j]]);
             token_distances[j] = token_dist;
             distance += token_dist;
           }
@@ -188,7 +200,7 @@ IntegerMatrix nmatch_cpp_tfreq(const CharacterVector& x,
           std::vector<int> token_distances(min_tokens);
 
           for (int j = 0; j < min_tokens && distance < min_distance; j++) {
-            int token_dist = levenshtein_distance(tokens_x[indices[j]], tokens_y[j]);
+            int token_dist = osa_distance(tokens_x[indices[j]], tokens_y[j]);
             token_distances[j] = token_dist;
             distance += token_dist;
           }
@@ -198,6 +210,7 @@ IntegerMatrix nmatch_cpp_tfreq(const CharacterVector& x,
             // Store the best matching tokens and their distances
             best_tokens_x.clear();
             best_tokens_y.clear();
+            best_distances.clear();
             for (int j = 0; j < min_tokens; j++) {
               best_tokens_x.push_back(tokens_x[indices[j]]);
               best_tokens_y.push_back(tokens_y[j]);

@@ -5,6 +5,10 @@ tokenize_name <- function(name, nchar_min = 2L) {
     .Call(`_nmatch_tokenize_name`, name, nchar_min)
 }
 
+osa_distance <- function(s1, s2) {
+    .Call(`_nmatch_osa_distance`, s1, s2)
+}
+
 nmatch_cpp_tfreq <- function(x, y, nchar_min = 2L, token = character(), token_freq = integer()) {
     .Call(`_nmatch_nmatch_cpp_tfreq`, x, y, nchar_min, token, token_freq)
 }
