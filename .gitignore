@@ -3,3 +3,6 @@
 .DS_store
 archive
 docs
+*.csv
+*.txt
+*.pdf

@@ -69,15 +69,15 @@
 #' nmatch_fast(names1, names2)
 #'
 #' @export nmatch_fast
-nmatch_fast <- function(x,
-                        y,
-                        token_split = "[-_[:space:]]+",
-                        nchar_min = 2L,
-                        std = name_standardize,
-                        ...,
-                        token_freq = NULL) {
-
-
+nmatch_fast <- function(
+  x,
+  y,
+  token_split = "[-_[:space:]]+",
+  nchar_min = 2L,
+  std = name_standardize,
+  ...,
+  token_freq = NULL
+) {
   ## match args
   if (!is.null(std)) {
     std <- match.fun(std)
@@ -108,7 +108,7 @@ nmatch_fast <- function(x,
   is_na_x <- is.na(x_std)
   is_na_y <- is.na(y_std)
   is_na_xy <- is_na_x | is_na_y
-  is_k_align_zero <- out[,3] == 0L
+  is_k_align_zero <- out[, 3] == 0L
 
   out[is_na_x, 1] <- NA_integer_
   out[is_na_y, 2] <- NA_integer_
@@ -122,4 +122,3 @@ nmatch_fast <- function(x,
   ## return
   out
 }
-
