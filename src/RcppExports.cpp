@@ -25,6 +25,21 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// nmatch_cpp_similarity
+DataFrame nmatch_cpp_similarity(const CharacterVector& x, const CharacterVector& y, int nchar_min, const CharacterVector& token, const IntegerVector& token_freq);
+RcppExport SEXP _nmatch_nmatch_cpp_similarity(SEXP xSEXP, SEXP ySEXP, SEXP nchar_minSEXP, SEXP tokenSEXP, SEXP token_freqSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const CharacterVector& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const CharacterVector& >::type y(ySEXP);
+    Rcpp::traits::input_parameter< int >::type nchar_min(nchar_minSEXP);
+    Rcpp::traits::input_parameter< const CharacterVector& >::type token(tokenSEXP);
+    Rcpp::traits::input_parameter< const IntegerVector& >::type token_freq(token_freqSEXP);
+    rcpp_result_gen = Rcpp::wrap(nmatch_cpp_similarity(x, y, nchar_min, token, token_freq));
+    return rcpp_result_gen;
+END_RCPP
+}
 // nmatch_cpp_tprob
 DataFrame nmatch_cpp_tprob(const CharacterVector& x, const CharacterVector& y, int nchar_min, const CharacterVector& token_x, const IntegerVector& dist_x, const NumericVector& prob_x, const CharacterVector& token_y, const IntegerVector& dist_y, const NumericVector& prob_y);
 RcppExport SEXP _nmatch_nmatch_cpp_tprob(SEXP xSEXP, SEXP ySEXP, SEXP nchar_minSEXP, SEXP token_xSEXP, SEXP dist_xSEXP, SEXP prob_xSEXP, SEXP token_ySEXP, SEXP dist_ySEXP, SEXP prob_ySEXP) {
@@ -71,6 +86,7 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_nmatch_nmatch_cpp_tfreq", (DL_FUNC) &_nmatch_nmatch_cpp_tfreq, 5},
+    {"_nmatch_nmatch_cpp_similarity", (DL_FUNC) &_nmatch_nmatch_cpp_similarity, 5},
     {"_nmatch_nmatch_cpp_tprob", (DL_FUNC) &_nmatch_nmatch_cpp_tprob, 9},
     {"_nmatch_tokenize_name", (DL_FUNC) &_nmatch_tokenize_name, 2},
     {"_nmatch_osa_distance", (DL_FUNC) &_nmatch_osa_distance, 2},

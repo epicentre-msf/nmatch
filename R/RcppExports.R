@@ -5,6 +5,10 @@ nmatch_cpp_tfreq <- function(x, y, nchar_min = 2L, token = character(), token_fr
     .Call(`_nmatch_nmatch_cpp_tfreq`, x, y, nchar_min, token, token_freq)
 }
 
+nmatch_cpp_similarity <- function(x, y, nchar_min = 2L, token = character(), token_freq = integer()) {
+    .Call(`_nmatch_nmatch_cpp_similarity`, x, y, nchar_min, token, token_freq)
+}
+
 nmatch_cpp_tprob <- function(x, y, nchar_min = 2L, token_x = character(), dist_x = integer(), prob_x = numeric(), token_y = character(), dist_y = integer(), prob_y = numeric()) {
     .Call(`_nmatch_nmatch_cpp_tprob`, x, y, nchar_min, token_x, dist_x, prob_x, token_y, dist_y, prob_y)
 }

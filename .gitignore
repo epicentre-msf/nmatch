@@ -1,8 +1,9 @@
 .Rproj.user
 .Rhistory
 .DS_store
-archive
-docs
+archive/
+docs/
+benchmark/
 *.csv
 *.txt
 *.pdf
