@@ -57,7 +57,10 @@ Returns a data frame summarizing the match details, including columns:
 \item \code{p1}: probability of observing a match as good as that between the first aligned token pair
 \item \code{p2}: probability of observing a match as good as that between the second aligned token pair
 \item \code{p3}: probability of observing a match as good as that between the third aligned token pair
-\item \code{p_match}: overall match probability
+\item \code{similarity}: summed string similarity across aligned token pairs, computed
+as \code{sum(1 - dist_i / max(nchar(x_i), nchar(y_i)))}; ranges from 0 to \code{k_align}
+\item \code{weight}: sum of \code{-log(p_i)} across all \code{k_align} aligned token pairs; the
+alignment itself is chosen to maximise this score
 }
 }
 \description{

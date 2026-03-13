@@ -20,7 +20,10 @@
 #' - `p1`: probability of observing a match as good as that between the first aligned token pair
 #' - `p2`: probability of observing a match as good as that between the second aligned token pair
 #' - `p3`: probability of observing a match as good as that between the third aligned token pair
-#' - `p_match`: overall match probability
+#' - `similarity`: summed string similarity across aligned token pairs, computed
+#' as `sum(1 - dist_i / max(nchar(x_i), nchar(y_i)))`; ranges from 0 to `k_align`
+#' - `weight`: sum of `-log(p_i)` across all `k_align` aligned token pairs; the
+#' alignment itself is chosen to maximise this score
 #'
 #' @importFrom dplyr as_tibble
 #' @export nmatch_fast_prob
@@ -62,7 +65,7 @@ nmatch_fast_prob <- function(
     prob_y = prob_y
   )
 
-  ## hack to deal with NA
+  ## handle NA inputs
   is_na_x <- is.na(x_std)
   is_na_y <- is.na(y_std)
   is_na_xy <- is_na_x | is_na_y
@@ -74,8 +77,13 @@ nmatch_fast_prob <- function(
   out[is_na_xy, 4] <- NA_integer_
   out[is_na_xy, 5] <- NA_integer_
 
-  # if k_align = 0, force dist_total to NA (may be 9999 from nmatch_cpp_tfreq)
+  # if k_align = 0, force dist_total to NA (may be 9999 from nmatch_cpp_tprob)
   out[is_k_align_zero, 5] <- NA_integer_
+
+  out$similarity[is_na_xy] <- NA_real_
+  out$similarity[is_k_align_zero] <- NA_real_
+  out$weight[is_na_xy] <- NA_real_
+  out$weight[is_k_align_zero] <- NA_real_
 
   ## return
   dplyr::as_tibble(out)

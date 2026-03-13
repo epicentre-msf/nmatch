@@ -3,12 +3,28 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
+#include <map>
 #include <unordered_map>
 #include "nmatch_utils.h"
 
 using namespace Rcpp;
 
+// Look up P(dist <= query_dist | token) using floor semantics on the sorted
+// distance map. Returns default_prob if query_dist is below the smallest
+// stored distance (i.e. the observed distance is more extreme than any in the
+// training data) and the last stored value if query_dist exceeds the maximum.
+static double lookup_cum_prob(const std::map<int, double>& dist_map,
+                              int query_dist, double default_prob) {
+  if (dist_map.empty()) return default_prob;
+  auto it = dist_map.upper_bound(query_dist); // first entry with key > query_dist
+  if (it == dist_map.begin()) return default_prob; // query_dist < smallest stored
+  --it;
+  return it->second;
+}
+
 // Vectorized version with token probability lookup
+// Alignment is chosen to maximise sum(-log geomean(P_x, P_y)) across aligned
+// token pairs. Evidence = that maximum sum, covering all k_align pairs.
 // [[Rcpp::export]]
 DataFrame nmatch_cpp_tprob(const CharacterVector& x,
                            const CharacterVector& y,
@@ -26,103 +42,76 @@ DataFrame nmatch_cpp_tprob(const CharacterVector& x,
     Rcpp::stop("x and y must have the same length");
   }
 
-  // Validate token lookup vectors
   if (token_x.size() != dist_x.size() || token_x.size() != prob_x.size()) {
     Rcpp::stop("token_x, dist_x, and prob_x must have the same length");
   }
-  
+
   if (token_y.size() != dist_y.size() || token_y.size() != prob_y.size()) {
     Rcpp::stop("token_y, dist_y, and prob_y must have the same length");
   }
 
-  // Replace IntegerMatrix with separate vectors
-  IntegerVector k_x_vec(n);
-  IntegerVector k_y_vec(n);
-  IntegerVector k_align_vec(n);
-  IntegerVector n_match_vec(n);
-  IntegerVector dist_total_vec(n);
-  NumericVector prob_avg_1(n, NA_REAL);
-  NumericVector prob_avg_2(n, NA_REAL);
-  NumericVector prob_avg_3(n, NA_REAL);
-  NumericVector prob_product(n, NA_REAL);
-  
-  // Pre-convert all strings
-  std::vector<std::string> x_strings(n);
-  std::vector<std::string> y_strings(n);
+  // Output vectors
+  IntegerVector k_x_vec(n), k_y_vec(n), k_align_vec(n), n_match_vec(n), dist_total_vec(n);
+  NumericVector prob_avg_1(n, NA_REAL), prob_avg_2(n, NA_REAL), prob_avg_3(n, NA_REAL);
+  NumericVector similarity_vec(n, NA_REAL);
+  NumericVector weight_vec(n, NA_REAL);
+
+  // Pre-convert strings
+  std::vector<std::string> x_strings(n), y_strings(n);
   for (int i = 0; i < n; i++) {
     x_strings[i] = Rcpp::as<std::string>(x[i]);
     y_strings[i] = Rcpp::as<std::string>(y[i]);
   }
 
-  // Create hash maps for probability lookups
-  // Map: token -> (distance -> probability)
+  // Build probability maps: token -> sorted map<dist, cum_prob>
   bool use_prob_lookup = (token_x.size() > 0 && token_y.size() > 0);
-  
-  std::unordered_map<std::string, std::unordered_map<int, double>> prob_map_x;
-  std::unordered_map<std::string, std::unordered_map<int, double>> prob_map_y;
-  
+
+  std::unordered_map<std::string, std::map<int, double>> prob_map_x, prob_map_y;
+
   if (use_prob_lookup) {
-    // Build probability map for x tokens
     for (int idx = 0; idx < token_x.size(); idx++) {
-      std::string tok = Rcpp::as<std::string>(token_x[idx]);
-      int dist = dist_x[idx];
-      double prob = prob_x[idx];
-      prob_map_x[tok][dist] = prob;
+      prob_map_x[Rcpp::as<std::string>(token_x[idx])][dist_x[idx]] = prob_x[idx];
     }
-    
-    // Build probability map for y tokens
     for (int idx = 0; idx < token_y.size(); idx++) {
-      std::string tok = Rcpp::as<std::string>(token_y[idx]);
-      int dist = dist_y[idx];
-      double prob = prob_y[idx];
-      prob_map_y[tok][dist] = prob;
+      prob_map_y[Rcpp::as<std::string>(token_y[idx])][dist_y[idx]] = prob_y[idx];
     }
   }
 
   // Process each pair
   for (int i = 0; i < n; i++) {
 
-    // tokenize strings
     std::vector<std::string> tokens_x = tokenize_name(x_strings[i], nchar_min);
     std::vector<std::string> tokens_y = tokenize_name(y_strings[i], nchar_min);
 
     int k_x = tokens_x.size();
     int k_y = tokens_y.size();
     int min_tokens = std::min(k_x, k_y);
-    int min_distance;
-    int n_match = 0;
 
-    // Variables to store best matching tokens for probability lookup
-    std::vector<std::string> best_tokens_x;
-    std::vector<std::string> best_tokens_y;
-    std::vector<int> best_distances; // Store distances for each token pair
+    std::vector<std::string> best_tokens_x, best_tokens_y;
+    std::vector<int> best_distances;
+    std::vector<double> best_pair_probs; // geomean(P_x, P_y) per aligned pair
+    int dist_of_best = 0;
 
     if (tokens_x.empty() || tokens_y.empty()) {
-      min_distance = 9999;
-    } else {
-      min_distance = INT_MAX;
+      dist_of_best = 9999;
 
-      // Choose smaller set to permute
+    } else if (!use_prob_lookup) {
+      // Fall back to distance-based optimisation when no tables are provided
+      int min_distance = INT_MAX;
+
       if (k_x <= k_y) {
         std::vector<int> indices(k_y);
         std::iota(indices.begin(), indices.end(), 0);
-
         do {
           int distance = 0;
           std::vector<int> token_distances(min_tokens);
-
           for (int j = 0; j < min_tokens && distance < min_distance; j++) {
-            int token_dist = osa_distance(tokens_x[j], tokens_y[indices[j]]);
-            token_distances[j] = token_dist;
-            distance += token_dist;
+            token_distances[j] = osa_distance(tokens_x[j], tokens_y[indices[j]]);
+            distance += token_distances[j];
           }
-
           if (distance < min_distance) {
             min_distance = distance;
-            // Store the best matching tokens and their distances
-            best_tokens_x.clear();
-            best_tokens_y.clear();
-            best_distances.clear();
+            best_tokens_x.clear(); best_tokens_y.clear(); best_distances.clear();
             for (int j = 0; j < min_tokens; j++) {
               best_tokens_x.push_back(tokens_x[j]);
               best_tokens_y.push_back(tokens_y[indices[j]]);
@@ -130,29 +119,21 @@ DataFrame nmatch_cpp_tprob(const CharacterVector& x,
             }
             if (min_distance == 0) break;
           }
-
         } while (std::next_permutation(indices.begin(), indices.end()));
 
       } else {
         std::vector<int> indices(k_x);
         std::iota(indices.begin(), indices.end(), 0);
-
         do {
           int distance = 0;
           std::vector<int> token_distances(min_tokens);
-
           for (int j = 0; j < min_tokens && distance < min_distance; j++) {
-            int token_dist = osa_distance(tokens_x[indices[j]], tokens_y[j]);
-            token_distances[j] = token_dist;
-            distance += token_dist;
+            token_distances[j] = osa_distance(tokens_x[indices[j]], tokens_y[j]);
+            distance += token_distances[j];
           }
-
           if (distance < min_distance) {
             min_distance = distance;
-            // Store the best matching tokens and their distances
-            best_tokens_x.clear();
-            best_tokens_y.clear();
-            best_distances.clear();
+            best_tokens_x.clear(); best_tokens_y.clear(); best_distances.clear();
             for (int j = 0; j < min_tokens; j++) {
               best_tokens_x.push_back(tokens_x[indices[j]]);
               best_tokens_y.push_back(tokens_y[j]);
@@ -160,102 +141,143 @@ DataFrame nmatch_cpp_tprob(const CharacterVector& x,
             }
             if (min_distance == 0) break;
           }
-
         } while (std::next_permutation(indices.begin(), indices.end()));
       }
 
-      // Count matches using the match_eval_token logic
-      for (int j = 0; j < best_tokens_x.size(); j++) {
-        int nchar_x = best_tokens_x[j].length();
-        int nchar_y = best_tokens_y[j].length();
-        int dist = best_distances[j];
+      dist_of_best = min_distance;
 
-        if (match_eval_token_cpp(nchar_x, nchar_y, dist)) {
-          n_match++;
-        }
+    } else {
+      // Probability-based optimisation: maximise sum(-log geomean(P_x, P_y))
+      double max_weight = -1.0;
+
+      if (k_x <= k_y) {
+        std::vector<int> indices(k_y);
+        std::iota(indices.begin(), indices.end(), 0);
+        do {
+          double weight = 0.0;
+          int dist_sum = 0;
+          std::vector<int> token_distances(min_tokens);
+          std::vector<double> pair_probs(min_tokens);
+
+          for (int j = 0; j < min_tokens; j++) {
+            int d = osa_distance(tokens_x[j], tokens_y[indices[j]]);
+            token_distances[j] = d;
+            dist_sum += d;
+
+            auto it_x = prob_map_x.find(tokens_x[j]);
+            double px = (it_x != prob_map_x.end())
+              ? lookup_cum_prob(it_x->second, d, it_x->second.begin()->second) : 1.0;
+
+            auto it_y = prob_map_y.find(tokens_y[indices[j]]);
+            double py = (it_y != prob_map_y.end())
+              ? lookup_cum_prob(it_y->second, d, it_y->second.begin()->second) : 1.0;
+
+            double geomean_p = std::exp((std::log(px) + std::log(py)) / 2.0);
+            pair_probs[j] = geomean_p;
+            weight += -std::log(geomean_p);
+          }
+
+          if (weight > max_weight) {
+            max_weight = weight;
+            dist_of_best = dist_sum;
+            best_tokens_x.clear(); best_tokens_y.clear();
+            best_distances.clear(); best_pair_probs.clear();
+            for (int j = 0; j < min_tokens; j++) {
+              best_tokens_x.push_back(tokens_x[j]);
+              best_tokens_y.push_back(tokens_y[indices[j]]);
+              best_distances.push_back(token_distances[j]);
+              best_pair_probs.push_back(pair_probs[j]);
+            }
+          }
+        } while (std::next_permutation(indices.begin(), indices.end()));
+
+      } else {
+        std::vector<int> indices(k_x);
+        std::iota(indices.begin(), indices.end(), 0);
+        do {
+          double weight = 0.0;
+          int dist_sum = 0;
+          std::vector<int> token_distances(min_tokens);
+          std::vector<double> pair_probs(min_tokens);
+
+          for (int j = 0; j < min_tokens; j++) {
+            int d = osa_distance(tokens_x[indices[j]], tokens_y[j]);
+            token_distances[j] = d;
+            dist_sum += d;
+
+            auto it_x = prob_map_x.find(tokens_x[indices[j]]);
+            double px = (it_x != prob_map_x.end())
+              ? lookup_cum_prob(it_x->second, d, it_x->second.begin()->second) : 1.0;
+
+            auto it_y = prob_map_y.find(tokens_y[j]);
+            double py = (it_y != prob_map_y.end())
+              ? lookup_cum_prob(it_y->second, d, it_y->second.begin()->second) : 1.0;
+
+            double geomean_p = std::exp((std::log(px) + std::log(py)) / 2.0);
+            pair_probs[j] = geomean_p;
+            weight += -std::log(geomean_p);
+          }
+
+          if (weight > max_weight) {
+            max_weight = weight;
+            dist_of_best = dist_sum;
+            best_tokens_x.clear(); best_tokens_y.clear();
+            best_distances.clear(); best_pair_probs.clear();
+            for (int j = 0; j < min_tokens; j++) {
+              best_tokens_x.push_back(tokens_x[indices[j]]);
+              best_tokens_y.push_back(tokens_y[j]);
+              best_distances.push_back(token_distances[j]);
+              best_pair_probs.push_back(pair_probs[j]);
+            }
+          }
+        } while (std::next_permutation(indices.begin(), indices.end()));
       }
     }
 
-    if (use_prob_lookup && !best_tokens_x.empty()) {
-      // For each token in the best alignment (up to 3)
-      for (int tok_idx = 0; tok_idx < std::min(3, (int)best_tokens_x.size()); tok_idx++) {
-        std::string tok_x = best_tokens_x[tok_idx];
-        std::string tok_y = best_tokens_y[tok_idx];
-        int dist = best_distances[tok_idx];
-        
-        double prob_from_x = NA_REAL;
-        double prob_from_y = NA_REAL;
-        
-        // Look up prob_x for token_y at this distance
-        auto tok_it_x = prob_map_x.find(tok_x);
-        if (tok_it_x != prob_map_x.end()) {
-          auto dist_it = tok_it_x->second.find(dist);
-          if (dist_it != tok_it_x->second.end()) {
-            prob_from_x = dist_it->second;
-          }
-        }
-        
-        // Look up prob_y for token_x at this distance
-        auto tok_it_y = prob_map_y.find(tok_y);
-        if (tok_it_y != prob_map_y.end()) {
-          auto dist_it = tok_it_y->second.find(dist);
-          if (dist_it != tok_it_y->second.end()) {
-            prob_from_y = dist_it->second;
-          }
-        }
-        
-        // Calculate average if both found
-        if (!ISNA(prob_from_x) && !ISNA(prob_from_y)) {
-          // double avg_prob = (prob_from_x + prob_from_y) / 2.0;
-          double avg_prob = std::exp((std::log(prob_from_x) + std::log(prob_from_y)) / 2.0);
-          
-          if (tok_idx == 0) prob_avg_1[i] = avg_prob;
-          else if (tok_idx == 1) prob_avg_2[i] = avg_prob;
-          else if (tok_idx == 2) prob_avg_3[i] = avg_prob;
-        }
-      }
+    // Count matches and sum similarity from best alignment
+    int n_match = 0;
+    double sim_total = 0.0;
+    for (int j = 0; j < (int)best_tokens_x.size(); j++) {
+      int nchar_x = best_tokens_x[j].length();
+      int nchar_y = best_tokens_y[j].length();
+      int d = best_distances[j];
+      if (match_eval_token_cpp(nchar_x, nchar_y, d)) n_match++;
+      sim_total += 1.0 - (double)d / std::max(nchar_x, nchar_y);
+    }
+    if (!best_tokens_x.empty()) similarity_vec[i] = sim_total;
 
-      // Calculate product of non-missing probabilities
-      double product = 1.0;
-      int count = 0;
-      
-      if (!ISNA(prob_avg_1[i])) {
-        product *= prob_avg_1[i];
-        count++;
-      }
-      if (!ISNA(prob_avg_2[i])) {
-        product *= prob_avg_2[i];
-        count++;
-      }
-      if (!ISNA(prob_avg_3[i])) {
-        product *= prob_avg_3[i];
-        count++;
-      }
-      
-      if (count > 0) {
-        prob_product[i] = product;
-      }
+    // Per-pair probability outputs from best alignment
+    if (use_prob_lookup && !best_pair_probs.empty()) {
+      int n_pairs = best_pair_probs.size();
+
+      // p1/p2/p3: first three pairs (backward compat)
+      if (n_pairs >= 1) prob_avg_1[i] = best_pair_probs[0];
+      if (n_pairs >= 2) prob_avg_2[i] = best_pair_probs[1];
+      if (n_pairs >= 3) prob_avg_3[i] = best_pair_probs[2];
+
+      // weight: sum(-log p) for ALL aligned pairs
+      double wt = 0.0;
+      for (double p : best_pair_probs) wt += -std::log(p);
+      weight_vec[i] = wt;
     }
 
-    // Store results in vectors instead of matrix
-    k_x_vec[i] = k_x;
-    k_y_vec[i] = k_y;
-    k_align_vec[i] = min_tokens;
-    n_match_vec[i] = n_match;
-    dist_total_vec[i] = min_distance;
+    k_x_vec[i]        = k_x;
+    k_y_vec[i]        = k_y;
+    k_align_vec[i]    = min_tokens;
+    n_match_vec[i]    = n_match;
+    dist_total_vec[i] = dist_of_best;
   }
 
-  // Return DataFrame instead of IntegerMatrix
   return DataFrame::create(
-    Named("k_x") = k_x_vec,
-    Named("k_y") = k_y_vec,
-    Named("k_align") = k_align_vec,
-    Named("n_match") = n_match_vec,
+    Named("k_x")        = k_x_vec,
+    Named("k_y")        = k_y_vec,
+    Named("k_align")    = k_align_vec,
+    Named("n_match")    = n_match_vec,
     Named("dist_total") = dist_total_vec,
-    Named("p1") = prob_avg_1,
-    Named("p2") = prob_avg_2,
-    Named("p3") = prob_avg_3,
-    Named("p_product") = prob_product
+    Named("p1")         = prob_avg_1,
+    Named("p2")         = prob_avg_2,
+    Named("p3")         = prob_avg_3,
+    Named("similarity") = similarity_vec,
+    Named("weight")     = weight_vec
   );
 }
-
