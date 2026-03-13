@@ -23,8 +23,7 @@ static double lookup_cum_prob(const std::map<int, double>& dist_map,
 }
 
 // Vectorized version with token probability lookup
-// Alignment is chosen to maximise sum(-log geomean(P_x, P_y)) across aligned
-// token pairs. Evidence = that maximum sum, covering all k_align pairs.
+// Evidence = maximum sum(-log geomean(P_x, P_y)) across aligned token pairs
 // [[Rcpp::export]]
 DataFrame nmatch_cpp_tprob(const CharacterVector& x,
                            const CharacterVector& y,
@@ -89,14 +88,13 @@ DataFrame nmatch_cpp_tprob(const CharacterVector& x,
 
     std::vector<std::string> best_tokens_x, best_tokens_y;
     std::vector<int> best_distances;
-    std::vector<double> best_pair_probs; // geomean(P_x, P_y) per aligned pair
     int dist_of_best = 0;
 
     if (tokens_x.empty() || tokens_y.empty()) {
       dist_of_best = 9999;
 
-    } else if (!use_prob_lookup) {
-      // Fall back to distance-based optimisation when no tables are provided
+    } else {
+      // Always align by minimising summed string distance
       int min_distance = INT_MAX;
 
       if (k_x <= k_y) {
@@ -145,93 +143,6 @@ DataFrame nmatch_cpp_tprob(const CharacterVector& x,
       }
 
       dist_of_best = min_distance;
-
-    } else {
-      // Probability-based optimisation: maximise sum(-log geomean(P_x, P_y))
-      double max_weight = -1.0;
-
-      if (k_x <= k_y) {
-        std::vector<int> indices(k_y);
-        std::iota(indices.begin(), indices.end(), 0);
-        do {
-          double weight = 0.0;
-          int dist_sum = 0;
-          std::vector<int> token_distances(min_tokens);
-          std::vector<double> pair_probs(min_tokens);
-
-          for (int j = 0; j < min_tokens; j++) {
-            int d = osa_distance(tokens_x[j], tokens_y[indices[j]]);
-            token_distances[j] = d;
-            dist_sum += d;
-
-            auto it_x = prob_map_x.find(tokens_x[j]);
-            double px = (it_x != prob_map_x.end())
-              ? lookup_cum_prob(it_x->second, d, it_x->second.begin()->second) : 1.0;
-
-            auto it_y = prob_map_y.find(tokens_y[indices[j]]);
-            double py = (it_y != prob_map_y.end())
-              ? lookup_cum_prob(it_y->second, d, it_y->second.begin()->second) : 1.0;
-
-            double geomean_p = std::exp((std::log(px) + std::log(py)) / 2.0);
-            pair_probs[j] = geomean_p;
-            weight += -std::log(geomean_p);
-          }
-
-          if (weight > max_weight) {
-            max_weight = weight;
-            dist_of_best = dist_sum;
-            best_tokens_x.clear(); best_tokens_y.clear();
-            best_distances.clear(); best_pair_probs.clear();
-            for (int j = 0; j < min_tokens; j++) {
-              best_tokens_x.push_back(tokens_x[j]);
-              best_tokens_y.push_back(tokens_y[indices[j]]);
-              best_distances.push_back(token_distances[j]);
-              best_pair_probs.push_back(pair_probs[j]);
-            }
-          }
-        } while (std::next_permutation(indices.begin(), indices.end()));
-
-      } else {
-        std::vector<int> indices(k_x);
-        std::iota(indices.begin(), indices.end(), 0);
-        do {
-          double weight = 0.0;
-          int dist_sum = 0;
-          std::vector<int> token_distances(min_tokens);
-          std::vector<double> pair_probs(min_tokens);
-
-          for (int j = 0; j < min_tokens; j++) {
-            int d = osa_distance(tokens_x[indices[j]], tokens_y[j]);
-            token_distances[j] = d;
-            dist_sum += d;
-
-            auto it_x = prob_map_x.find(tokens_x[indices[j]]);
-            double px = (it_x != prob_map_x.end())
-              ? lookup_cum_prob(it_x->second, d, it_x->second.begin()->second) : 1.0;
-
-            auto it_y = prob_map_y.find(tokens_y[j]);
-            double py = (it_y != prob_map_y.end())
-              ? lookup_cum_prob(it_y->second, d, it_y->second.begin()->second) : 1.0;
-
-            double geomean_p = std::exp((std::log(px) + std::log(py)) / 2.0);
-            pair_probs[j] = geomean_p;
-            weight += -std::log(geomean_p);
-          }
-
-          if (weight > max_weight) {
-            max_weight = weight;
-            dist_of_best = dist_sum;
-            best_tokens_x.clear(); best_tokens_y.clear();
-            best_distances.clear(); best_pair_probs.clear();
-            for (int j = 0; j < min_tokens; j++) {
-              best_tokens_x.push_back(tokens_x[indices[j]]);
-              best_tokens_y.push_back(tokens_y[j]);
-              best_distances.push_back(token_distances[j]);
-              best_pair_probs.push_back(pair_probs[j]);
-            }
-          }
-        } while (std::next_permutation(indices.begin(), indices.end()));
-      }
     }
 
     // Count matches and sum similarity from best alignment
@@ -247,17 +158,29 @@ DataFrame nmatch_cpp_tprob(const CharacterVector& x,
     if (!best_tokens_x.empty()) similarity_vec[i] = sim_total;
 
     // Per-pair probability outputs from best alignment
-    if (use_prob_lookup && !best_pair_probs.empty()) {
-      int n_pairs = best_pair_probs.size();
-
-      // p1/p2/p3: first three pairs (backward compat)
-      if (n_pairs >= 1) prob_avg_1[i] = best_pair_probs[0];
-      if (n_pairs >= 2) prob_avg_2[i] = best_pair_probs[1];
-      if (n_pairs >= 3) prob_avg_3[i] = best_pair_probs[2];
-
-      // weight: sum(-log p) for ALL aligned pairs
+    if (use_prob_lookup && !best_tokens_x.empty()) {
+      int n_pairs = best_tokens_x.size();
       double wt = 0.0;
-      for (double p : best_pair_probs) wt += -std::log(p);
+
+      for (int j = 0; j < n_pairs; j++) {
+        int d = best_distances[j];
+
+        auto it_x = prob_map_x.find(best_tokens_x[j]);
+        double px = (it_x != prob_map_x.end())
+          ? lookup_cum_prob(it_x->second, d, it_x->second.begin()->second) : 1.0;
+
+        auto it_y = prob_map_y.find(best_tokens_y[j]);
+        double py = (it_y != prob_map_y.end())
+          ? lookup_cum_prob(it_y->second, d, it_y->second.begin()->second) : 1.0;
+
+        double geomean_p = std::exp((std::log(px) + std::log(py)) / 2.0);
+        wt += -std::log(geomean_p);
+
+        if (j == 0) prob_avg_1[i] = geomean_p;
+        if (j == 1) prob_avg_2[i] = geomean_p;
+        if (j == 2) prob_avg_3[i] = geomean_p;
+      }
+
       weight_vec[i] = wt;
     }
 

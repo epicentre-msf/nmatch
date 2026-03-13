@@ -17,13 +17,15 @@
 #' - `k_align`: number of aligned tokens (i.e. `min(k_x, k_y)`)
 #' - `n_match`: number of tokens that match (see \link{match_eval_token} for match logic)
 #' - `dist_total`: summed string distance across aligned tokens
-#' - `p1`: probability of observing a match as good as that between the first aligned token pair
-#' - `p2`: probability of observing a match as good as that between the second aligned token pair
-#' - `p3`: probability of observing a match as good as that between the third aligned token pair
+#' - `p1`: false-positive match probability with respect to first aligned token pair
+#' - `p2`: false-positive match probability with respect to second aligned token pair
+#' - `p3`: false-positive match probability with respect to third aligned token pair
 #' - `similarity`: summed string similarity across aligned token pairs, computed
 #' as `sum(1 - dist_i / max(nchar(x_i), nchar(y_i)))`; ranges from 0 to `k_align`
-#' - `weight`: sum of `-log(p_i)` across all `k_align` aligned token pairs; the
-#' alignment itself is chosen to maximise this score
+#' - `weight`: sum of `-log(p_i)` across all `k_align` aligned token pairs
+#'
+#' The alignment is chosen to minimise summed string distance. `p1`, `p2`,
+#' `p3`, and `weight` are `NA` when no token probability tables are provided.
 #'
 #' @importFrom dplyr as_tibble
 #' @export nmatch_fast_prob
@@ -34,12 +36,12 @@ nmatch_fast_prob <- function(
   nchar_min = 2L,
   std = name_standardize,
   ...,
-  token_x,
-  dist_x,
-  prob_x,
-  token_y,
-  dist_y,
-  prob_y
+  token_x = NULL,
+  dist_x = NULL,
+  prob_x = NULL,
+  token_y = NULL,
+  dist_y = NULL,
+  prob_y = NULL
 ) {
   ## match args
   if (!is.null(std)) {
@@ -51,6 +53,26 @@ nmatch_fast_prob <- function(
   ## standardize names
   x_std <- std(x, ...)
   y_std <- std(y, ...)
+
+  ## coerce NULLs to empty vectors for C++
+  if (is.null(token_x)) {
+    token_x <- character(0)
+  }
+  if (is.null(dist_x)) {
+    dist_x <- integer(0)
+  }
+  if (is.null(prob_x)) {
+    prob_x <- numeric(0)
+  }
+  if (is.null(token_y)) {
+    token_y <- character(0)
+  }
+  if (is.null(dist_y)) {
+    dist_y <- integer(0)
+  }
+  if (is.null(prob_y)) {
+    prob_y <- numeric(0)
+  }
 
   ## call to cpp function
   out <- nmatch_cpp_tprob(

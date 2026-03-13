@@ -12,12 +12,12 @@ nmatch_fast_prob(
   nchar_min = 2L,
   std = name_standardize,
   ...,
-  token_x,
-  dist_x,
-  prob_x,
-  token_y,
-  dist_y,
-  prob_y
+  token_x = NULL,
+  dist_x = NULL,
+  prob_x = NULL,
+  token_y = NULL,
+  dist_y = NULL,
+  prob_y = NULL
 )
 }
 \arguments{
@@ -54,14 +54,16 @@ Returns a data frame summarizing the match details, including columns:
 \item \code{k_align}: number of aligned tokens (i.e. \code{min(k_x, k_y)})
 \item \code{n_match}: number of tokens that match (see \link{match_eval_token} for match logic)
 \item \code{dist_total}: summed string distance across aligned tokens
-\item \code{p1}: probability of observing a match as good as that between the first aligned token pair
-\item \code{p2}: probability of observing a match as good as that between the second aligned token pair
-\item \code{p3}: probability of observing a match as good as that between the third aligned token pair
+\item \code{p1}: false-positive match probability with respect to first aligned token pair
+\item \code{p2}: false-positive match probability with respect to second aligned token pair
+\item \code{p3}: false-positive match probability with respect to third aligned token pair
 \item \code{similarity}: summed string similarity across aligned token pairs, computed
 as \code{sum(1 - dist_i / max(nchar(x_i), nchar(y_i)))}; ranges from 0 to \code{k_align}
-\item \code{weight}: sum of \code{-log(p_i)} across all \code{k_align} aligned token pairs; the
-alignment itself is chosen to maximise this score
+\item \code{weight}: sum of \code{-log(p_i)} across all \code{k_align} aligned token pairs
 }
+
+The alignment is chosen to minimise summed string distance. \code{p1}, \code{p2},
+\code{p3}, and \code{weight} are \code{NA} when no token probability tables are provided.
 }
 \description{
 Test version of nmatch_fast that explicitly incorporate false-positive probabilities
