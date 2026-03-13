@@ -180,7 +180,7 @@ nmatch <- function(x,
     ) %>%
     # make sure dat_token_counts contains all id
     # even for entries where all tokens excluded because shorter than nchar_min
-    left_join(x = select(dat_std, id), by = "id")
+    left_join(x = select(dat_std, "id"), by = "id")
 
   ## calculate stringdist between tokens
   is_na_x <- is.na(dat_tokens$x_token)
@@ -208,7 +208,7 @@ nmatch <- function(x,
   names(perm_list) <- paste(perm_combos$max, perm_combos$min, sep = "-")
 
   best_alignment <- dat_tokens %>%
-    tidyr::nest(data = !id) %>%
+    tidyr::nest(data = !all_of("id")) %>%
     # within groups, must be arranged by x_index then y_index at this stage !
     mutate(rowid_temp_list = map(.data$data, find_best_alignment, perm_list = perm_list))
 
@@ -228,8 +228,8 @@ nmatch <- function(x,
 
   if (return_alignment) {
     best_alignment_join <- match_summary_prep %>%
-      select(id:dist) %>%
-      tidyr::nest(align = !id)
+      select("id":"dist") %>%
+      tidyr::nest(align = !all_of("id"))
   }
 
   # evalutate whether token match

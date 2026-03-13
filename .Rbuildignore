@@ -8,6 +8,7 @@
 ^\.travis\.yml$
 ^codecov\.yml$
 ^\.github$
+^\.claude$
 ^_pkgdown\.yml$
 ^docs$
 ^pkgdown$

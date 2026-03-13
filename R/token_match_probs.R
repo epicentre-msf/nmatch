@@ -37,7 +37,7 @@
 #' )
 #' }
 #'
-#' @importFrom dplyr summarise arrange mutate transmute as_tibble
+#' @importFrom dplyr summarise arrange mutate transmute select as_tibble
 #' @export token_match_probs
 token_match_probs <- function(
   x,
@@ -77,14 +77,14 @@ token_match_probs <- function(
       iy = seq_len(nrow(freq_y))
     ) |>
       transmute(
-        token_x = fx_batch$token[ix],
-        token_y = freq_y$token[iy],
-        freq = fx_batch$freq[ix] * freq_y$freq[iy],
-        dist = as.integer(stringdist::stringdist(token_x, token_y, method = "osa"))
+        token_x = fx_batch$token[.data$ix],
+        token_y = freq_y$token[.data$iy],
+        freq = fx_batch$freq[.data$ix] * freq_y$freq[.data$iy],
+        dist = as.integer(stringdist::stringdist(.data$token_x, .data$token_y, method = "osa"))
       )
 
-    agg_x <- rbind(agg_x, summarise(pairs, .by = c(token_x, dist), freq = sum(freq)))
-    agg_y <- rbind(agg_y, summarise(pairs, .by = c(token_y, dist), freq = sum(freq)))
+    agg_x <- rbind(agg_x, summarise(pairs, .by = c("token_x", "dist"), freq = sum(.data$freq)))
+    agg_y <- rbind(agg_y, summarise(pairs, .by = c("token_y", "dist"), freq = sum(.data$freq)))
 
     if (verbose) {
       message("Batch ", b, " of ", n_batches, " complete (x tokens ", start, "-", end, " of ", n_x, ")")
@@ -93,7 +93,7 @@ token_match_probs <- function(
 
   # agg_x: x tokens are unique across batches, no re-summarise needed
   # agg_y: same y tokens accumulate across batches, so consolidate here
-  agg_y <- summarise(agg_y, .by = c(token_y, dist), freq = sum(freq))
+  agg_y <- summarise(agg_y, .by = c("token_y", "dist"), freq = sum(.data$freq))
 
   list(
     x = as_tibble(.cumprob_from_agg(agg_x, "token_x")),
@@ -118,7 +118,7 @@ token_match_probs <- function(
 # Compute cumulative probabilities from a (token_col, dist, freq) aggregation data frame
 .cumprob_from_agg <- function(agg, token_col) {
   agg$token <- agg[[token_col]]
-  agg <- arrange(agg, token, dist)
-  agg <- mutate(agg, .by = token, prob = cumsum(freq) / sum(freq))
-  transmute(agg, token, dist, prob)
+  agg <- arrange(agg, .data$token, .data$dist)
+  agg <- mutate(agg, .by = "token", prob = cumsum(.data$freq) / sum(.data$freq))
+  select(agg, "token", "dist", "prob")
 }
