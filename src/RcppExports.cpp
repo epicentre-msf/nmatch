@@ -26,17 +26,21 @@ BEGIN_RCPP
 END_RCPP
 }
 // nmatch_cpp_similarity
-DataFrame nmatch_cpp_similarity(const CharacterVector& x, const CharacterVector& y, int nchar_min, const CharacterVector& token, const IntegerVector& token_freq);
-RcppExport SEXP _nmatch_nmatch_cpp_similarity(SEXP xSEXP, SEXP ySEXP, SEXP nchar_minSEXP, SEXP tokenSEXP, SEXP token_freqSEXP) {
+DataFrame nmatch_cpp_similarity(const CharacterVector& x, const CharacterVector& y, int nchar_min, const CharacterVector& token_x, const NumericVector& idf_x, double default_idf_x, const CharacterVector& token_y, const NumericVector& idf_y, double default_idf_y);
+RcppExport SEXP _nmatch_nmatch_cpp_similarity(SEXP xSEXP, SEXP ySEXP, SEXP nchar_minSEXP, SEXP token_xSEXP, SEXP idf_xSEXP, SEXP default_idf_xSEXP, SEXP token_ySEXP, SEXP idf_ySEXP, SEXP default_idf_ySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const CharacterVector& >::type x(xSEXP);
     Rcpp::traits::input_parameter< const CharacterVector& >::type y(ySEXP);
     Rcpp::traits::input_parameter< int >::type nchar_min(nchar_minSEXP);
-    Rcpp::traits::input_parameter< const CharacterVector& >::type token(tokenSEXP);
-    Rcpp::traits::input_parameter< const IntegerVector& >::type token_freq(token_freqSEXP);
-    rcpp_result_gen = Rcpp::wrap(nmatch_cpp_similarity(x, y, nchar_min, token, token_freq));
+    Rcpp::traits::input_parameter< const CharacterVector& >::type token_x(token_xSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type idf_x(idf_xSEXP);
+    Rcpp::traits::input_parameter< double >::type default_idf_x(default_idf_xSEXP);
+    Rcpp::traits::input_parameter< const CharacterVector& >::type token_y(token_ySEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type idf_y(idf_ySEXP);
+    Rcpp::traits::input_parameter< double >::type default_idf_y(default_idf_ySEXP);
+    rcpp_result_gen = Rcpp::wrap(nmatch_cpp_similarity(x, y, nchar_min, token_x, idf_x, default_idf_x, token_y, idf_y, default_idf_y));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -86,7 +90,7 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_nmatch_nmatch_cpp_tfreq", (DL_FUNC) &_nmatch_nmatch_cpp_tfreq, 5},
-    {"_nmatch_nmatch_cpp_similarity", (DL_FUNC) &_nmatch_nmatch_cpp_similarity, 5},
+    {"_nmatch_nmatch_cpp_similarity", (DL_FUNC) &_nmatch_nmatch_cpp_similarity, 9},
     {"_nmatch_nmatch_cpp_tprob", (DL_FUNC) &_nmatch_nmatch_cpp_tprob, 9},
     {"_nmatch_tokenize_name", (DL_FUNC) &_nmatch_tokenize_name, 2},
     {"_nmatch_osa_distance", (DL_FUNC) &_nmatch_osa_distance, 2},

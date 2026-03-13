@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmatch_fast_similarity.R
 \name{nmatch_fast_similarity}
 \alias{nmatch_fast_similarity}
-\title{Test version of nmatch_fast that evaluates string similarity scores}
+\title{Test version of nmatch_fast that evaluates a TF-IDF weighted evidence score}
 \usage{
 nmatch_fast_similarity(
   x,
@@ -11,7 +11,8 @@ nmatch_fast_similarity(
   nchar_min = 2L,
   std = name_standardize,
   ...,
-  token_freq = NULL
+  token_idf_x = NULL,
+  token_idf_y = NULL
 )
 }
 \arguments{
@@ -28,12 +29,13 @@ underscore, or space character.}
 
 \item{...}{additional arguments passed to \code{std()}}
 
-\item{token_freq}{Optional data frame containing the frequencies of name
-tokens within the population of interest. Must have two columns
-\itemize{
-\item token_std: standardized tokens (using the same function as \code{std})
-\item freq: token frequency
-}}
+\item{token_idf_x}{data frame with columns \code{token} (character) and \code{idf}
+(numeric) providing IDF weights for tokens in the \code{x}-side corpus. If
+\code{NULL} (default), all \code{x} tokens receive equal weight (IDF = 1).}
+
+\item{token_idf_y}{data frame with columns \code{token} (character) and \code{idf}
+(numeric) providing IDF weights for tokens in the \code{y}-side corpus. If
+\code{NULL} (default), all \code{y} tokens receive equal weight (IDF = 1).}
 }
 \value{
 Returns a data frame summarizing the match details, including columns:
@@ -41,18 +43,15 @@ Returns a data frame summarizing the match details, including columns:
 \item \code{k_x}: number of tokens in \code{x} (excludes tokens smaller than \code{nchar_min})
 \item \code{k_y}: number of tokens in \code{y} (excludes tokens smaller than \code{nchar_min})
 \item \code{k_align}: number of aligned tokens (i.e. \code{min(k_x, k_y)})
-\item \code{sim_total}: summed similarity score across aligned tokens (between 0 and
-\code{k_align}, where \code{k_align} indicates a perfect match)
-\item \code{freq1}: summed frequency of first pair of aligned tokens (or NA if
-argument \code{token_freq} not provided)
-\item \code{freq2}: summed frequency of second pair of aligned tokens (or NA if
-argument \code{token_freq} not provided)
-\item \code{freq3}: summed frequency of third pair of aligned tokens (or NA if
-argument \code{token_freq} not provided)
+\item \code{similarity}: summed string similarity across aligned token pairs, computed
+as \code{sum(1 - dist_i / max(nchar(x_i), nchar(y_i)))}
+\item \code{evidence}: TF-IDF weighted evidence score across aligned tokens,
+computed as \code{sum(sim(x_i, y_i)^2 * (IDF_x_i + IDF_y_i) / 2)}, where
+\code{sim} is the normalized OSA string similarity (between 0 and 1)
 }
 }
 \description{
-Test version of nmatch_fast that evaluates string similarity scores
+Test version of nmatch_fast that evaluates a TF-IDF weighted evidence score
 }
 \examples{
 names1 <- c(
@@ -71,7 +70,7 @@ names2 <- c(
   "PEREZ-CASTLEJON, Pedro"
 )
 
-# return data frame with match details
+# return data frame with match details (uniform IDF weights)
 nmatch_fast_similarity(names1, names2)
 
 }
