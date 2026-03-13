@@ -12,12 +12,8 @@ nmatch_fast_prob(
   nchar_min = 2L,
   std = name_standardize,
   ...,
-  token_x = NULL,
-  dist_x = NULL,
-  prob_x = NULL,
-  token_y = NULL,
-  dist_y = NULL,
-  prob_y = NULL,
+  token_match_prob_x = NULL,
+  token_match_prob_y = NULL,
   token_idf_x = NULL,
   token_idf_y = NULL
 )
@@ -36,25 +32,25 @@ underscore, or space character.}
 
 \item{...}{additional arguments passed to \code{std()}}
 
-\item{token_x}{Vector of standardized tokens for the \code{x}-side lookup table}
+\item{token_match_prob_x}{data frame with columns \code{token} (character), \code{dist}
+(integer), and \code{prob} (numeric) for the x-side corpus, as returned by
+\code{\link{token_match_probs}}. If \code{NULL} (default), \code{p1}, \code{p2}, \code{p3},
+and \code{log_score} are \code{NA}.}
 
-\item{dist_x}{Integer vector of OSA distances corresponding to each token in \code{token_x}}
-
-\item{prob_x}{Numeric vector of probabilities corresponding to each token in \code{token_x}}
-
-\item{token_y}{Vector of standardized tokens for the \code{y}-side lookup table}
-
-\item{dist_y}{Integer vector of OSA distances corresponding to each token in \code{token_y}}
-
-\item{prob_y}{Numeric vector of probabilities corresponding to each token in \code{token_y}}
+\item{token_match_prob_y}{data frame with columns \code{token} (character), \code{dist}
+(integer), and \code{prob} (numeric) for the y-side corpus, as returned by
+\code{\link{token_match_probs}}. If \code{NULL} (default), \code{p1}, \code{p2}, \code{p3},
+and \code{log_score} are \code{NA}.}
 
 \item{token_idf_x}{data frame with columns \code{token} (character) and \code{idf}
-(numeric) providing IDF weights for tokens in the \code{x}-side corpus. If
-\code{NULL} (default), \code{evidence} is \code{NA}.}
+(numeric) providing IDF weights for tokens in the \code{x}-side corpus, as
+returned by \code{\link{token_idf}}. If \code{NULL} (default), \code{idf_score}
+is \code{NA}.}
 
 \item{token_idf_y}{data frame with columns \code{token} (character) and \code{idf}
-(numeric) providing IDF weights for tokens in the \code{y}-side corpus. If
-\code{NULL} (default), \code{evidence} is \code{NA}.}
+(numeric) providing IDF weights for tokens in the \code{y}-side corpus, as
+returned by \code{\link{token_idf}}. If \code{NULL} (default), \code{idf_score}
+is \code{NA}.}
 }
 \value{
 Returns a data frame summarizing the match details, including columns:
@@ -76,8 +72,9 @@ as \code{sum(similarity(x_i, y_i)^2 * (IDF_x_i + IDF_y_i) / 2)}
 }
 
 The alignment is chosen to minimise summed string distance. \code{p1}, \code{p2},
-\code{p3}, and \code{log_score} are \code{NA} when no token probability tables are provided.
-\code{idf_score} is \code{NA} when neither \code{token_idf_x} nor \code{token_idf_y} is provided.
+\code{p3}, and \code{log_score} are \code{NA} when \code{token_match_prob_x}/\code{token_match_prob_y} are not
+provided. \code{idf_score} is \code{NA} when \code{token_idf_x}/\code{token_idf_y} are not
+provided.
 }
 \description{
 Test version of nmatch_fast that explicitly incorporate false-positive probabilities
