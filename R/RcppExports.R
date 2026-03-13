@@ -5,10 +5,6 @@ nmatch_cpp_tfreq <- function(x, y, nchar_min = 2L, token = character(), token_fr
     .Call(`_nmatch_nmatch_cpp_tfreq`, x, y, nchar_min, token, token_freq)
 }
 
-nmatch_cpp_similarity <- function(x, y, nchar_min = 2L, token_x = character(), idf_x = numeric(), default_idf_x = 1.0, token_y = character(), idf_y = numeric(), default_idf_y = 1.0) {
-    .Call(`_nmatch_nmatch_cpp_similarity`, x, y, nchar_min, token_x, idf_x, default_idf_x, token_y, idf_y, default_idf_y)
-}
-
 nmatch_cpp_tprob <- function(x, y, nchar_min = 2L, token_x = character(), dist_x = integer(), prob_x = numeric(), token_y = character(), dist_y = integer(), prob_y = numeric(), idf_token_x = character(), idf_x = numeric(), default_idf_x = 1.0, idf_token_y = character(), idf_y = numeric(), default_idf_y = 1.0, compute_idf_score = FALSE) {
     .Call(`_nmatch_nmatch_cpp_tprob`, x, y, nchar_min, token_x, dist_x, prob_x, token_y, dist_y, prob_y, idf_token_x, idf_x, default_idf_x, idf_token_y, idf_y, default_idf_y, compute_idf_score)
 }
