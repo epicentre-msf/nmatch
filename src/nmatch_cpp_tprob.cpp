@@ -58,7 +58,6 @@ DataFrame nmatch_cpp_tprob(const CharacterVector& x,
 
   // Output vectors
   IntegerVector k_x_vec(n), k_y_vec(n), k_align_vec(n), n_match_vec(n), dist_total_vec(n);
-  NumericVector prob_avg_1(n, NA_REAL), prob_avg_2(n, NA_REAL), prob_avg_3(n, NA_REAL);
   NumericVector similarity_vec(n, NA_REAL);
   NumericVector log_score_vec(n, NA_REAL);
   NumericVector idf_score_vec(n, NA_REAL);
@@ -207,10 +206,6 @@ DataFrame nmatch_cpp_tprob(const CharacterVector& x,
 
         double geomean_p = std::exp((std::log(px) + std::log(py)) / 2.0);
         log_score += -std::log(geomean_p);
-
-        if (j == 0) prob_avg_1[i] = geomean_p;
-        if (j == 1) prob_avg_2[i] = geomean_p;
-        if (j == 2) prob_avg_3[i] = geomean_p;
       }
 
       log_score_vec[i] = log_score;
@@ -229,9 +224,6 @@ DataFrame nmatch_cpp_tprob(const CharacterVector& x,
     Named("k_align")    = k_align_vec,
     Named("n_match")    = n_match_vec,
     Named("dist_total") = dist_total_vec,
-    Named("p1")         = prob_avg_1,
-    Named("p2")         = prob_avg_2,
-    Named("p3")         = prob_avg_3,
     Named("similarity") = similarity_vec,
     Named("log_score")  = log_score_vec,
     Named("idf_score")  = idf_score_vec

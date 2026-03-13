@@ -60,9 +60,6 @@ Returns a data frame summarizing the match details, including columns:
 \item \code{k_align}: number of aligned tokens (i.e. \code{min(k_x, k_y)})
 \item \code{n_match}: number of tokens that match (see \link{match_eval_token} for match logic)
 \item \code{dist_total}: summed string distance across aligned tokens
-\item \code{p1}: false-positive match probability with respect to first aligned token pair
-\item \code{p2}: false-positive match probability with respect to second aligned token pair
-\item \code{p3}: false-positive match probability with respect to third aligned token pair
 \item \code{similarity}: summed string similarity across aligned token pairs, computed
 as \code{sum(1 - dist_i / max(nchar(x_i), nchar(y_i)))}; ranges from 0 to \code{k_align}
 \item \code{log_score}: sum of \code{-log(geomean(p_x_i, p_y_i))} across all \code{k_align}
@@ -71,10 +68,9 @@ aligned token pairs
 as \code{sum(similarity(x_i, y_i)^2 * (IDF_x_i + IDF_y_i) / 2)}
 }
 
-The alignment is chosen to minimise summed string distance. \code{p1}, \code{p2},
-\code{p3}, and \code{log_score} are \code{NA} when \code{token_match_prob_x}/\code{token_match_prob_y} are not
-provided. \code{idf_score} is \code{NA} when \code{token_idf_x}/\code{token_idf_y} are not
-provided.
+The alignment is chosen to minimise summed string distance. \code{log_score} is
+\code{NA} when \code{token_match_prob_x}/\code{token_match_prob_y} are not provided.
+\code{idf_score} is \code{NA} when \code{token_idf_x}/\code{token_idf_y} are not provided.
 }
 \description{
 Test version of nmatch_fast that explicitly incorporate false-positive probabilities

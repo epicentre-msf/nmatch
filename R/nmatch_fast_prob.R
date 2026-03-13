@@ -27,9 +27,6 @@
 #' - `k_align`: number of aligned tokens (i.e. `min(k_x, k_y)`)
 #' - `n_match`: number of tokens that match (see \link{match_eval_token} for match logic)
 #' - `dist_total`: summed string distance across aligned tokens
-#' - `p1`: false-positive match probability with respect to first aligned token pair
-#' - `p2`: false-positive match probability with respect to second aligned token pair
-#' - `p3`: false-positive match probability with respect to third aligned token pair
 #' - `similarity`: summed string similarity across aligned token pairs, computed
 #' as `sum(1 - dist_i / max(nchar(x_i), nchar(y_i)))`; ranges from 0 to `k_align`
 #' - `log_score`: sum of `-log(geomean(p_x_i, p_y_i))` across all `k_align`
@@ -37,10 +34,9 @@
 #' - `idf_score`: TF-IDF weighted similarity score across aligned tokens, computed
 #' as `sum(similarity(x_i, y_i)^2 * (IDF_x_i + IDF_y_i) / 2)`
 #'
-#' The alignment is chosen to minimise summed string distance. `p1`, `p2`,
-#' `p3`, and `log_score` are `NA` when `token_match_prob_x`/`token_match_prob_y` are not
-#' provided. `idf_score` is `NA` when `token_idf_x`/`token_idf_y` are not
-#' provided.
+#' The alignment is chosen to minimise summed string distance. `log_score` is
+#' `NA` when `token_match_prob_x`/`token_match_prob_y` are not provided.
+#' `idf_score` is `NA` when `token_idf_x`/`token_idf_y` are not provided.
 #'
 #' @importFrom dplyr as_tibble
 #' @export nmatch_fast_prob
