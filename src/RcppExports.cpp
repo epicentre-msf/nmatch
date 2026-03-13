@@ -45,8 +45,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // nmatch_cpp_tprob
-DataFrame nmatch_cpp_tprob(const CharacterVector& x, const CharacterVector& y, int nchar_min, const CharacterVector& token_x, const IntegerVector& dist_x, const NumericVector& prob_x, const CharacterVector& token_y, const IntegerVector& dist_y, const NumericVector& prob_y);
-RcppExport SEXP _nmatch_nmatch_cpp_tprob(SEXP xSEXP, SEXP ySEXP, SEXP nchar_minSEXP, SEXP token_xSEXP, SEXP dist_xSEXP, SEXP prob_xSEXP, SEXP token_ySEXP, SEXP dist_ySEXP, SEXP prob_ySEXP) {
+DataFrame nmatch_cpp_tprob(const CharacterVector& x, const CharacterVector& y, int nchar_min, const CharacterVector& token_x, const IntegerVector& dist_x, const NumericVector& prob_x, const CharacterVector& token_y, const IntegerVector& dist_y, const NumericVector& prob_y, const CharacterVector& idf_token_x, const NumericVector& idf_x, double default_idf_x, const CharacterVector& idf_token_y, const NumericVector& idf_y, double default_idf_y, bool compute_idf_score);
+RcppExport SEXP _nmatch_nmatch_cpp_tprob(SEXP xSEXP, SEXP ySEXP, SEXP nchar_minSEXP, SEXP token_xSEXP, SEXP dist_xSEXP, SEXP prob_xSEXP, SEXP token_ySEXP, SEXP dist_ySEXP, SEXP prob_ySEXP, SEXP idf_token_xSEXP, SEXP idf_xSEXP, SEXP default_idf_xSEXP, SEXP idf_token_ySEXP, SEXP idf_ySEXP, SEXP default_idf_ySEXP, SEXP compute_idf_scoreSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -59,7 +59,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const CharacterVector& >::type token_y(token_ySEXP);
     Rcpp::traits::input_parameter< const IntegerVector& >::type dist_y(dist_ySEXP);
     Rcpp::traits::input_parameter< const NumericVector& >::type prob_y(prob_ySEXP);
-    rcpp_result_gen = Rcpp::wrap(nmatch_cpp_tprob(x, y, nchar_min, token_x, dist_x, prob_x, token_y, dist_y, prob_y));
+    Rcpp::traits::input_parameter< const CharacterVector& >::type idf_token_x(idf_token_xSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type idf_x(idf_xSEXP);
+    Rcpp::traits::input_parameter< double >::type default_idf_x(default_idf_xSEXP);
+    Rcpp::traits::input_parameter< const CharacterVector& >::type idf_token_y(idf_token_ySEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type idf_y(idf_ySEXP);
+    Rcpp::traits::input_parameter< double >::type default_idf_y(default_idf_ySEXP);
+    Rcpp::traits::input_parameter< bool >::type compute_idf_score(compute_idf_scoreSEXP);
+    rcpp_result_gen = Rcpp::wrap(nmatch_cpp_tprob(x, y, nchar_min, token_x, dist_x, prob_x, token_y, dist_y, prob_y, idf_token_x, idf_x, default_idf_x, idf_token_y, idf_y, default_idf_y, compute_idf_score));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -87,13 +94,26 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// token_idf_cpp
+DataFrame token_idf_cpp(const CharacterVector& names, int nchar_min);
+RcppExport SEXP _nmatch_token_idf_cpp(SEXP namesSEXP, SEXP nchar_minSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const CharacterVector& >::type names(namesSEXP);
+    Rcpp::traits::input_parameter< int >::type nchar_min(nchar_minSEXP);
+    rcpp_result_gen = Rcpp::wrap(token_idf_cpp(names, nchar_min));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_nmatch_nmatch_cpp_tfreq", (DL_FUNC) &_nmatch_nmatch_cpp_tfreq, 5},
     {"_nmatch_nmatch_cpp_similarity", (DL_FUNC) &_nmatch_nmatch_cpp_similarity, 9},
-    {"_nmatch_nmatch_cpp_tprob", (DL_FUNC) &_nmatch_nmatch_cpp_tprob, 9},
+    {"_nmatch_nmatch_cpp_tprob", (DL_FUNC) &_nmatch_nmatch_cpp_tprob, 16},
     {"_nmatch_tokenize_name", (DL_FUNC) &_nmatch_tokenize_name, 2},
     {"_nmatch_osa_distance", (DL_FUNC) &_nmatch_osa_distance, 2},
+    {"_nmatch_token_idf_cpp", (DL_FUNC) &_nmatch_token_idf_cpp, 2},
     {NULL, NULL, 0}
 };
 

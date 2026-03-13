@@ -9,6 +9,12 @@
 #' @param token_y Vector of standardized tokens for the `y`-side lookup table
 #' @param dist_y Integer vector of OSA distances corresponding to each token in `token_y`
 #' @param prob_y Numeric vector of probabilities corresponding to each token in `token_y`
+#' @param token_idf_x data frame with columns `token` (character) and `idf`
+#' (numeric) providing IDF weights for tokens in the `x`-side corpus. If
+#' `NULL` (default), `evidence` is `NA`.
+#' @param token_idf_y data frame with columns `token` (character) and `idf`
+#' (numeric) providing IDF weights for tokens in the `y`-side corpus. If
+#' `NULL` (default), `evidence` is `NA`.
 #'
 #' @return
 #' Returns a data frame summarizing the match details, including columns:
@@ -22,10 +28,14 @@
 #' - `p3`: false-positive match probability with respect to third aligned token pair
 #' - `similarity`: summed string similarity across aligned token pairs, computed
 #' as `sum(1 - dist_i / max(nchar(x_i), nchar(y_i)))`; ranges from 0 to `k_align`
-#' - `weight`: sum of `-log(p_i)` across all `k_align` aligned token pairs
+#' - `log_score`: sum of `-log(geomean(p_x_i, p_y_i))` across all `k_align`
+#' aligned token pairs
+#' - `idf_score`: TF-IDF weighted similarity score across aligned tokens, computed
+#' as `sum(similarity(x_i, y_i)^2 * (IDF_x_i + IDF_y_i) / 2)`
 #'
 #' The alignment is chosen to minimise summed string distance. `p1`, `p2`,
-#' `p3`, and `weight` are `NA` when no token probability tables are provided.
+#' `p3`, and `log_score` are `NA` when no token probability tables are provided.
+#' `idf_score` is `NA` when neither `token_idf_x` nor `token_idf_y` is provided.
 #'
 #' @importFrom dplyr as_tibble
 #' @export nmatch_fast_prob
@@ -41,7 +51,9 @@ nmatch_fast_prob <- function(
   prob_x = NULL,
   token_y = NULL,
   dist_y = NULL,
-  prob_y = NULL
+  prob_y = NULL,
+  token_idf_x = NULL,
+  token_idf_y = NULL
 ) {
   ## match args
   if (!is.null(std)) {
@@ -74,6 +86,23 @@ nmatch_fast_prob <- function(
     prob_y <- numeric(0)
   }
 
+  ## prepare IDF args
+  compute_idf_score <- !is.null(token_idf_x) || !is.null(token_idf_y)
+
+  if (is.null(token_idf_x)) {
+    token_idf_x <- data.frame(token = character(0), idf = numeric(0))
+    default_idf_x <- 1.0
+  } else {
+    default_idf_x <- max(token_idf_x[[2]], na.rm = TRUE)
+  }
+
+  if (is.null(token_idf_y)) {
+    token_idf_y <- data.frame(token = character(0), idf = numeric(0))
+    default_idf_y <- 1.0
+  } else {
+    default_idf_y <- max(token_idf_y[[2]], na.rm = TRUE)
+  }
+
   ## call to cpp function
   out <- nmatch_cpp_tprob(
     x_std,
@@ -84,7 +113,14 @@ nmatch_fast_prob <- function(
     prob_x = prob_x,
     token_y = token_y,
     dist_y = dist_y,
-    prob_y = prob_y
+    prob_y = prob_y,
+    idf_token_x = token_idf_x[[1]],
+    idf_x = token_idf_x[[2]],
+    default_idf_x = default_idf_x,
+    idf_token_y = token_idf_y[[1]],
+    idf_y = token_idf_y[[2]],
+    default_idf_y = default_idf_y,
+    compute_idf_score = compute_idf_score
   )
 
   ## handle NA inputs
@@ -104,8 +140,10 @@ nmatch_fast_prob <- function(
 
   out$similarity[is_na_xy] <- NA_real_
   out$similarity[is_k_align_zero] <- NA_real_
-  out$weight[is_na_xy] <- NA_real_
-  out$weight[is_k_align_zero] <- NA_real_
+  out$log_score[is_na_xy] <- NA_real_
+  out$log_score[is_k_align_zero] <- NA_real_
+  out$idf_score[is_na_xy] <- NA_real_
+  out$idf_score[is_k_align_zero] <- NA_real_
 
   ## return
   dplyr::as_tibble(out)

@@ -33,7 +33,14 @@ DataFrame nmatch_cpp_tprob(const CharacterVector& x,
                            const NumericVector& prob_x = NumericVector(),
                            const CharacterVector& token_y = CharacterVector(),
                            const IntegerVector& dist_y = IntegerVector(),
-                           const NumericVector& prob_y = NumericVector()) {
+                           const NumericVector& prob_y = NumericVector(),
+                           const CharacterVector& idf_token_x = CharacterVector(),
+                           const NumericVector& idf_x = NumericVector(),
+                           double default_idf_x = 1.0,
+                           const CharacterVector& idf_token_y = CharacterVector(),
+                           const NumericVector& idf_y = NumericVector(),
+                           double default_idf_y = 1.0,
+                           bool compute_idf_score = false) {
 
   int n = x.size();
 
@@ -53,7 +60,8 @@ DataFrame nmatch_cpp_tprob(const CharacterVector& x,
   IntegerVector k_x_vec(n), k_y_vec(n), k_align_vec(n), n_match_vec(n), dist_total_vec(n);
   NumericVector prob_avg_1(n, NA_REAL), prob_avg_2(n, NA_REAL), prob_avg_3(n, NA_REAL);
   NumericVector similarity_vec(n, NA_REAL);
-  NumericVector weight_vec(n, NA_REAL);
+  NumericVector log_score_vec(n, NA_REAL);
+  NumericVector idf_score_vec(n, NA_REAL);
 
   // Pre-convert strings
   std::vector<std::string> x_strings(n), y_strings(n);
@@ -73,6 +81,18 @@ DataFrame nmatch_cpp_tprob(const CharacterVector& x,
     }
     for (int idx = 0; idx < token_y.size(); idx++) {
       prob_map_y[Rcpp::as<std::string>(token_y[idx])][dist_y[idx]] = prob_y[idx];
+    }
+  }
+
+  // Build IDF maps for IDF score
+  std::unordered_map<std::string, double> idf_map_x, idf_map_y;
+
+  if (compute_idf_score) {
+    for (int idx = 0; idx < idf_token_x.size(); idx++) {
+      idf_map_x[Rcpp::as<std::string>(idf_token_x[idx])] = idf_x[idx];
+    }
+    for (int idx = 0; idx < idf_token_y.size(); idx++) {
+      idf_map_y[Rcpp::as<std::string>(idf_token_y[idx])] = idf_y[idx];
     }
   }
 
@@ -145,22 +165,34 @@ DataFrame nmatch_cpp_tprob(const CharacterVector& x,
       dist_of_best = min_distance;
     }
 
-    // Count matches and sum similarity from best alignment
+    // Count matches, sum similarity, and compute evidence from best alignment
     int n_match = 0;
     double sim_total = 0.0;
+    double idf_score = 0.0;
     for (int j = 0; j < (int)best_tokens_x.size(); j++) {
       int nchar_x = best_tokens_x[j].length();
       int nchar_y = best_tokens_y[j].length();
       int d = best_distances[j];
       if (match_eval_token_cpp(nchar_x, nchar_y, d)) n_match++;
-      sim_total += 1.0 - (double)d / std::max(nchar_x, nchar_y);
+      double sim = 1.0 - (double)d / std::max(nchar_x, nchar_y);
+      sim_total += sim;
+      if (compute_idf_score) {
+        auto it_x = idf_map_x.find(best_tokens_x[j]);
+        double w_x = (it_x != idf_map_x.end()) ? it_x->second : default_idf_x;
+        auto it_y = idf_map_y.find(best_tokens_y[j]);
+        double w_y = (it_y != idf_map_y.end()) ? it_y->second : default_idf_y;
+        idf_score += sim * sim * (w_x + w_y) / 2.0;
+      }
     }
-    if (!best_tokens_x.empty()) similarity_vec[i] = sim_total;
+    if (!best_tokens_x.empty()) {
+      similarity_vec[i] = sim_total;
+      if (compute_idf_score) idf_score_vec[i] = idf_score;
+    }
 
     // Per-pair probability outputs from best alignment
     if (use_prob_lookup && !best_tokens_x.empty()) {
       int n_pairs = best_tokens_x.size();
-      double wt = 0.0;
+      double log_score = 0.0;
 
       for (int j = 0; j < n_pairs; j++) {
         int d = best_distances[j];
@@ -174,14 +206,14 @@ DataFrame nmatch_cpp_tprob(const CharacterVector& x,
           ? lookup_cum_prob(it_y->second, d, it_y->second.begin()->second) : 1.0;
 
         double geomean_p = std::exp((std::log(px) + std::log(py)) / 2.0);
-        wt += -std::log(geomean_p);
+        log_score += -std::log(geomean_p);
 
         if (j == 0) prob_avg_1[i] = geomean_p;
         if (j == 1) prob_avg_2[i] = geomean_p;
         if (j == 2) prob_avg_3[i] = geomean_p;
       }
 
-      weight_vec[i] = wt;
+      log_score_vec[i] = log_score;
     }
 
     k_x_vec[i]        = k_x;
@@ -201,6 +233,7 @@ DataFrame nmatch_cpp_tprob(const CharacterVector& x,
     Named("p2")         = prob_avg_2,
     Named("p3")         = prob_avg_3,
     Named("similarity") = similarity_vec,
-    Named("weight")     = weight_vec
+    Named("log_score")  = log_score_vec,
+    Named("idf_score")  = idf_score_vec
   );
 }

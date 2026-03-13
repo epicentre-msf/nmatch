@@ -58,18 +58,6 @@ token_idf <- function(
 # Compute IDF for a single standardized name vector
 .token_idf_one <- function(names, nchar_min) {
   names <- names[!is.na(names)]
-  N <- length(names)
-
-  # For each name, get unique tokens (IDF is based on document presence)
-  token_lists <- lapply(names, function(nm) unique(tokenize_name(nm, nchar_min)))
-
-  # Count number of names containing each token (document frequency)
-  all_tokens <- unlist(token_lists)
-  df <- as.integer(table(all_tokens))
-  tok <- names(table(all_tokens))
-
-  dplyr::tibble(
-    token = tok,
-    idf = log(N / df)
-  )
+  out <- dplyr::as_tibble(token_idf_cpp(names, nchar_min))
+  dplyr::arrange(out, .data$token)
 }

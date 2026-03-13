@@ -9,8 +9,8 @@ nmatch_cpp_similarity <- function(x, y, nchar_min = 2L, token_x = character(), i
     .Call(`_nmatch_nmatch_cpp_similarity`, x, y, nchar_min, token_x, idf_x, default_idf_x, token_y, idf_y, default_idf_y)
 }
 
-nmatch_cpp_tprob <- function(x, y, nchar_min = 2L, token_x = character(), dist_x = integer(), prob_x = numeric(), token_y = character(), dist_y = integer(), prob_y = numeric()) {
-    .Call(`_nmatch_nmatch_cpp_tprob`, x, y, nchar_min, token_x, dist_x, prob_x, token_y, dist_y, prob_y)
+nmatch_cpp_tprob <- function(x, y, nchar_min = 2L, token_x = character(), dist_x = integer(), prob_x = numeric(), token_y = character(), dist_y = integer(), prob_y = numeric(), idf_token_x = character(), idf_x = numeric(), default_idf_x = 1.0, idf_token_y = character(), idf_y = numeric(), default_idf_y = 1.0, compute_idf_score = FALSE) {
+    .Call(`_nmatch_nmatch_cpp_tprob`, x, y, nchar_min, token_x, dist_x, prob_x, token_y, dist_y, prob_y, idf_token_x, idf_x, default_idf_x, idf_token_y, idf_y, default_idf_y, compute_idf_score)
 }
 
 tokenize_name <- function(name, nchar_min = 2L) {
@@ -19,5 +19,9 @@ tokenize_name <- function(name, nchar_min = 2L) {
 
 osa_distance <- function(s1, s2) {
     .Call(`_nmatch_osa_distance`, s1, s2)
+}
+
+token_idf_cpp <- function(names, nchar_min = 2L) {
+    .Call(`_nmatch_token_idf_cpp`, names, nchar_min)
 }
 

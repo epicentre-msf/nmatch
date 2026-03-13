@@ -17,7 +17,9 @@ nmatch_fast_prob(
   prob_x = NULL,
   token_y = NULL,
   dist_y = NULL,
-  prob_y = NULL
+  prob_y = NULL,
+  token_idf_x = NULL,
+  token_idf_y = NULL
 )
 }
 \arguments{
@@ -45,6 +47,14 @@ underscore, or space character.}
 \item{dist_y}{Integer vector of OSA distances corresponding to each token in \code{token_y}}
 
 \item{prob_y}{Numeric vector of probabilities corresponding to each token in \code{token_y}}
+
+\item{token_idf_x}{data frame with columns \code{token} (character) and \code{idf}
+(numeric) providing IDF weights for tokens in the \code{x}-side corpus. If
+\code{NULL} (default), \code{evidence} is \code{NA}.}
+
+\item{token_idf_y}{data frame with columns \code{token} (character) and \code{idf}
+(numeric) providing IDF weights for tokens in the \code{y}-side corpus. If
+\code{NULL} (default), \code{evidence} is \code{NA}.}
 }
 \value{
 Returns a data frame summarizing the match details, including columns:
@@ -59,11 +69,15 @@ Returns a data frame summarizing the match details, including columns:
 \item \code{p3}: false-positive match probability with respect to third aligned token pair
 \item \code{similarity}: summed string similarity across aligned token pairs, computed
 as \code{sum(1 - dist_i / max(nchar(x_i), nchar(y_i)))}; ranges from 0 to \code{k_align}
-\item \code{weight}: sum of \code{-log(p_i)} across all \code{k_align} aligned token pairs
+\item \code{log_score}: sum of \code{-log(geomean(p_x_i, p_y_i))} across all \code{k_align}
+aligned token pairs
+\item \code{idf_score}: TF-IDF weighted similarity score across aligned tokens, computed
+as \code{sum(similarity(x_i, y_i)^2 * (IDF_x_i + IDF_y_i) / 2)}
 }
 
 The alignment is chosen to minimise summed string distance. \code{p1}, \code{p2},
-\code{p3}, and \code{weight} are \code{NA} when no token probability tables are provided.
+\code{p3}, and \code{log_score} are \code{NA} when no token probability tables are provided.
+\code{idf_score} is \code{NA} when neither \code{token_idf_x} nor \code{token_idf_y} is provided.
 }
 \description{
 Test version of nmatch_fast that explicitly incorporate false-positive probabilities
